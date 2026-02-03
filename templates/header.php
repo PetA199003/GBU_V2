@@ -36,18 +36,10 @@ $currentUser = getCurrentUser();
                         </a>
                     </li>
                     <?php if (hasRole(ROLE_EDITOR)): ?>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                    <li class="nav-item">
+                        <a class="nav-link" href="<?= BASE_URL ?>/bibliothek/gefaehrdungen.php">
                             <i class="bi bi-book me-1"></i>Bibliothek
                         </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?= BASE_URL ?>/bibliothek/gefaehrdungen.php">
-                                <i class="bi bi-exclamation-triangle me-2"></i>Gefährdungen
-                            </a></li>
-                            <li><a class="dropdown-item" href="<?= BASE_URL ?>/bibliothek/massnahmen.php">
-                                <i class="bi bi-check2-circle me-2"></i>Maßnahmen
-                            </a></li>
-                        </ul>
                     </li>
                     <?php endif; ?>
                     <?php if (hasRole(ROLE_ADMIN)): ?>

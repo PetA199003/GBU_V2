@@ -178,12 +178,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $db->insert('projekt_gefaehrdungen', [
                         'projekt_id' => $projektId,
                         'gefaehrdung_bibliothek_id' => $gef['id'],
+                        'gefaehrdungsart_id' => $gef['gefaehrdungsart_id'] ?? null,
+                        'kategorie_id' => $gef['kategorie_id'] ?? null,
+                        'unterkategorie_id' => $gef['unterkategorie_id'] ?? null,
                         'titel' => $gef['titel'],
                         'beschreibung' => $gef['beschreibung'],
-                        'kategorie_id' => $gef['kategorie_id'],
-                        'faktor_id' => $gef['faktor_id'],
                         'schadenschwere' => $gef['standard_schadenschwere'] ?? 2,
                         'wahrscheinlichkeit' => $gef['standard_wahrscheinlichkeit'] ?? 2,
+                        'stop_s' => $gef['stop_s'] ?? 0,
+                        'stop_t' => $gef['stop_t'] ?? 0,
+                        'stop_o' => $gef['stop_o'] ?? 0,
+                        'stop_p' => $gef['stop_p'] ?? 0,
                         'massnahmen' => $gef['typische_massnahmen'],
                         'erstellt_von' => $_SESSION['user_id']
                     ]);

@@ -53,10 +53,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                 $db->insert('projekt_gefaehrdungen', [
                     'projekt_id' => $projektId,
                     'gefaehrdung_bibliothek_id' => $bibId,
+                    'gefaehrdungsart_id' => $bibGef['gefaehrdungsart_id'] ?? null,
+                    'kategorie_id' => $bibGef['kategorie_id'] ?? null,
+                    'unterkategorie_id' => $bibGef['unterkategorie_id'] ?? null,
                     'titel' => $bibGef['titel'],
                     'beschreibung' => $bibGef['beschreibung'],
                     'schadenschwere' => $bibGef['standard_schadenschwere'] ?? 2,
                     'wahrscheinlichkeit' => $bibGef['standard_wahrscheinlichkeit'] ?? 2,
+                    'stop_s' => $bibGef['stop_s'] ?? 0,
+                    'stop_t' => $bibGef['stop_t'] ?? 0,
+                    'stop_o' => $bibGef['stop_o'] ?? 0,
+                    'stop_p' => $bibGef['stop_p'] ?? 0,
                     'massnahmen' => $bibGef['typische_massnahmen'],
                     'erstellt_von' => $userId
                 ]);
