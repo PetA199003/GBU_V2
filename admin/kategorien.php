@@ -96,6 +96,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             break;
+
+        case 'reorder_unterkategorie':
+            // Reihenfolge der Unterkategorie ändern
+            $ukId = $_POST['unterkategorie_id'];
+            $direction = $_POST['direction']; // up oder down
+
+            $uk = $db->fetchOne("SELECT * FROM arbeits_unterkategorien WHERE id = ?", [$ukId]);
+            if ($uk) {
+                if ($direction === 'up' && $uk['nummer'] > 1) {
+                    // Tausche mit vorheriger in derselben Kategorie
+                    $db->query("UPDATE arbeits_unterkategorien SET nummer = nummer + 1 WHERE nummer = ? AND kategorie_id = ?", [$uk['nummer'] - 1, $uk['kategorie_id']]);
+                    $db->query("UPDATE arbeits_unterkategorien SET nummer = nummer - 1 WHERE id = ?", [$ukId]);
+                } elseif ($direction === 'down') {
+                    // Tausche mit nächster in derselben Kategorie
+                    $db->query("UPDATE arbeits_unterkategorien SET nummer = nummer - 1 WHERE nummer = ? AND kategorie_id = ?", [$uk['nummer'] + 1, $uk['kategorie_id']]);
+                    $db->query("UPDATE arbeits_unterkategorien SET nummer = nummer + 1 WHERE id = ?", [$ukId]);
+                }
+            }
+            break;
     }
 
     redirect('admin/kategorien.php');
@@ -219,6 +238,22 @@ require_once __DIR__ . '/../templates/header.php';
                                                 <?= sanitize($uk['name']) ?>
                                             </span>
                                             <div class="btn-group btn-group-sm">
+                                                <form method="POST" class="d-inline">
+                                                    <input type="hidden" name="action" value="reorder_unterkategorie">
+                                                    <input type="hidden" name="unterkategorie_id" value="<?= $uk['id'] ?>">
+                                                    <input type="hidden" name="direction" value="up">
+                                                    <button type="submit" class="btn btn-outline-secondary btn-sm" title="Nach oben">
+                                                        <i class="bi bi-arrow-up"></i>
+                                                    </button>
+                                                </form>
+                                                <form method="POST" class="d-inline">
+                                                    <input type="hidden" name="action" value="reorder_unterkategorie">
+                                                    <input type="hidden" name="unterkategorie_id" value="<?= $uk['id'] ?>">
+                                                    <input type="hidden" name="direction" value="down">
+                                                    <button type="submit" class="btn btn-outline-secondary btn-sm" title="Nach unten">
+                                                        <i class="bi bi-arrow-down"></i>
+                                                    </button>
+                                                </form>
                                                 <button type="button" class="btn btn-outline-primary btn-sm"
                                                         onclick="editUnterkategorie(<?= htmlspecialchars(json_encode($uk)) ?>)">
                                                     <i class="bi bi-pencil"></i>
