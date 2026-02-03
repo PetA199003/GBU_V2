@@ -6,8 +6,8 @@
 
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'gefaehrdungsbeurteilung');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_USER', 'gbuser');
+define('DB_PASS', 'GBU2024sicher');
 define('DB_CHARSET', 'utf8mb4');
 
 class Database {
