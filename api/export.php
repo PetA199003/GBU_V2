@@ -1,42 +1,92 @@
 <?php
 /**
- * Export-Funktionen (PDF/Excel)
+ * Export-Funktionen für Projekte (PDF/Excel)
  */
 
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../includes/Gefaehrdungsbeurteilung.php';
+require_once __DIR__ . '/../config/database.php';
 
 requireLogin();
 
-$type = $_GET['type'] ?? 'pdf';
+$type = $_GET['type'] ?? 'projekt';
+$format = $_GET['format'] ?? 'pdf';
 $id = $_GET['id'] ?? null;
 
 if (!$id) {
-    die('ID erforderlich');
+    die('Projekt-ID erforderlich');
 }
 
-$gbClass = new Gefaehrdungsbeurteilung();
-$beurteilung = $gbClass->getById($id);
+$db = Database::getInstance();
 
-if (!$beurteilung) {
-    die('Gefährdungsbeurteilung nicht gefunden');
+// Projekt laden
+$projekt = $db->fetchOne("SELECT * FROM projekte WHERE id = ?", [$id]);
+
+if (!$projekt) {
+    die('Projekt nicht gefunden');
 }
 
-if ($type === 'pdf') {
-    // HTML-basiertes PDF (kann mit Browser-Druckfunktion oder wkhtmltopdf konvertiert werden)
-    generatePDFView($beurteilung);
-} elseif ($type === 'excel') {
-    generateExcel($beurteilung);
+// Berechtigung prüfen
+$userId = $_SESSION['user_id'];
+$isAdmin = hasRole(ROLE_ADMIN);
+
+if (!$isAdmin) {
+    $access = $db->fetchOne(
+        "SELECT berechtigung FROM benutzer_projekte WHERE benutzer_id = ? AND projekt_id = ?",
+        [$userId, $id]
+    );
+    if (!$access) {
+        die('Keine Berechtigung für dieses Projekt');
+    }
 }
 
-function generatePDFView($beurteilung) {
+// Gefährdungen laden
+$gefaehrdungen = $db->fetchAll("
+    SELECT pg.*,
+           ga.name as gefaehrdungsart_name, ga.nummer as gefaehrdungsart_nummer,
+           ak.name as kategorie_name, ak.nummer as kategorie_nummer,
+           auk.name as unterkategorie_name, auk.nummer as unterkategorie_nummer
+    FROM projekt_gefaehrdungen pg
+    LEFT JOIN gefaehrdungsarten ga ON pg.gefaehrdungsart_id = ga.id
+    LEFT JOIN arbeits_kategorien ak ON pg.kategorie_id = ak.id
+    LEFT JOIN arbeits_unterkategorien auk ON pg.unterkategorie_id = auk.id
+    WHERE pg.projekt_id = ?
+    ORDER BY ak.nummer, auk.nummer, pg.titel
+", [$id]);
+
+// Nach Kategorien gruppieren
+$gefNachKategorie = [];
+foreach ($gefaehrdungen as $gef) {
+    $katKey = $gef['kategorie_id'] ? $gef['kategorie_id'] : 0;
+    $katName = $gef['kategorie_name'] ? $gef['kategorie_nummer'] . '. ' . $gef['kategorie_name'] : 'Ohne Kategorie';
+    if (!isset($gefNachKategorie[$katKey])) {
+        $gefNachKategorie[$katKey] = [
+            'name' => $katName,
+            'nummer' => $gef['kategorie_nummer'] ?? 999,
+            'items' => []
+        ];
+    }
+    $gefNachKategorie[$katKey]['items'][] = $gef;
+}
+uasort($gefNachKategorie, fn($a, $b) => ($a['nummer'] ?? 999) <=> ($b['nummer'] ?? 999));
+
+// Ersteller laden
+$ersteller = $db->fetchOne("SELECT vorname, nachname FROM benutzer WHERE id = ?", [$projekt['erstellt_von']]);
+$erstellerName = $ersteller ? $ersteller['vorname'] . ' ' . $ersteller['nachname'] : 'Unbekannt';
+
+if ($format === 'excel' || $format === 'csv') {
+    generateExcel($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerName);
+} else {
+    generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerName);
+}
+
+function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerName) {
     ?>
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gefährdungsbeurteilung - <?= htmlspecialchars($beurteilung['titel']) ?></title>
+    <title>Gefährdungsbeurteilung - <?= htmlspecialchars($projekt['name']) ?></title>
     <style>
         * {
             margin: 0;
@@ -45,91 +95,105 @@ function generatePDFView($beurteilung) {
         }
         body {
             font-family: Arial, sans-serif;
-            font-size: 10pt;
-            line-height: 1.4;
-            padding: 15mm;
+            font-size: 9pt;
+            line-height: 1.3;
+            padding: 10mm;
         }
-        h1 { font-size: 16pt; margin-bottom: 10px; }
-        h2 { font-size: 12pt; margin: 15px 0 5px; background: #0d6efd; color: white; padding: 5px 10px; }
+        h1 { font-size: 14pt; margin-bottom: 8px; }
+        h2 { font-size: 11pt; margin: 12px 0 5px; background: #0d6efd; color: white; padding: 4px 8px; }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             page-break-inside: auto;
         }
         tr { page-break-inside: avoid; page-break-after: auto; }
         th, td {
             border: 1px solid #333;
-            padding: 4px 6px;
+            padding: 3px 5px;
             text-align: left;
             vertical-align: top;
         }
         th {
-            background: #f0f0f0;
+            background: #e9ecef;
             font-weight: bold;
+            font-size: 8pt;
         }
+        .header-table { margin-bottom: 10px; }
         .header-table td { border: none; padding: 2px 5px; }
-        .risk-1 { background: #92D050; }
-        .risk-2 { background: #92D050; }
-        .risk-3 { background: #FFFF00; }
-        .risk-4 { background: #FFFF00; }
-        .risk-6 { background: #FFC000; }
-        .risk-8 { background: #FFC000; }
-        .risk-9, .risk-12, .risk-18, .risk-27 { background: #FF0000; color: white; }
-        .stop-s { background: #FF0000; color: white; padding: 2px 5px; border-radius: 3px; }
-        .stop-t { background: #FFC000; padding: 2px 5px; border-radius: 3px; }
-        .stop-o { background: #FFFF00; padding: 2px 5px; border-radius: 3px; }
-        .stop-p { background: #92D050; padding: 2px 5px; border-radius: 3px; }
+        .risk-low { background: #92D050; }
+        .risk-medium { background: #FFFF00; }
+        .risk-high { background: #FFC000; }
+        .risk-very-high { background: #FF0000; color: white; }
+        .stop-s { background: #dc3545; color: white; padding: 1px 4px; border-radius: 2px; font-size: 7pt; }
+        .stop-t { background: #ffc107; color: black; padding: 1px 4px; border-radius: 2px; font-size: 7pt; }
+        .stop-o { background: #0dcaf0; color: black; padding: 1px 4px; border-radius: 2px; font-size: 7pt; }
+        .stop-p { background: #198754; color: white; padding: 1px 4px; border-radius: 2px; font-size: 7pt; }
         .text-center { text-align: center; }
-        .small { font-size: 8pt; }
-        .legend { margin-bottom: 15px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; }
-        .legend-item { display: inline-block; margin-right: 15px; }
-        .signature-line { border-bottom: 1px solid #333; height: 40px; margin-bottom: 5px; }
+        .small { font-size: 7pt; }
+        .legend { margin-bottom: 10px; padding: 8px; background: #f9f9f9; border: 1px solid #ddd; font-size: 8pt; }
+        .legend-item { display: inline-block; margin-right: 12px; }
+        .signature-line { border-bottom: 1px solid #333; height: 30px; margin-bottom: 3px; }
         @media print {
-            body { padding: 10mm; }
+            body { padding: 8mm; }
             .no-print { display: none; }
         }
         .print-btn {
             position: fixed;
             top: 10px;
             right: 10px;
-            padding: 10px 20px;
+            padding: 8px 16px;
             background: #0d6efd;
             color: white;
             border: none;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 12px;
+            border-radius: 4px;
         }
         .print-btn:hover { background: #0b5ed7; }
+        .back-btn {
+            position: fixed;
+            top: 10px;
+            right: 180px;
+            padding: 8px 16px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            border-radius: 4px;
+            text-decoration: none;
+        }
+        .back-btn:hover { background: #5c636a; }
+        .nummer { font-weight: bold; white-space: nowrap; }
     </style>
 </head>
 <body>
-    <button class="print-btn no-print" onclick="window.print()">Drucken / PDF speichern</button>
+    <a href="javascript:history.back()" class="back-btn no-print">← Zurück</a>
+    <button class="print-btn no-print" onclick="window.print()">🖨️ Drucken / PDF</button>
 
     <h1>Gefährdungsbeurteilung</h1>
-    <p style="margin-bottom: 15px;">nach §§ 5, 6 ArbSchG, § 3 ArbStättV, ASR V3 "Gefährdungsbeurteilung"</p>
+    <p style="margin-bottom: 10px; font-size: 8pt;">nach §§ 5, 6 ArbSchG, § 3 ArbStättV, ASR V3 "Gefährdungsbeurteilung"</p>
 
     <table class="header-table">
         <tr>
             <td style="width: 50%;">
-                <strong>Unternehmen:</strong> <?= htmlspecialchars($beurteilung['unternehmen_name']) ?><br>
-                <?php if ($beurteilung['arbeitsbereich_name']): ?>
-                <strong>Arbeitsbereich:</strong> <?= htmlspecialchars($beurteilung['arbeitsbereich_name']) ?><br>
-                <?php endif; ?>
-                <strong>Titel:</strong> <?= htmlspecialchars($beurteilung['titel']) ?>
+                <strong>Projekt:</strong> <?= htmlspecialchars($projekt['name']) ?><br>
+                <strong>Location:</strong> <?= htmlspecialchars($projekt['location']) ?><br>
+                <strong>Art:</strong> <?= $projekt['indoor_outdoor'] === 'indoor' ? 'Indoor' : ($projekt['indoor_outdoor'] === 'outdoor' ? 'Outdoor' : 'Indoor/Outdoor') ?>
             </td>
             <td style="width: 50%;">
-                <strong>Ersteller:</strong> <?= htmlspecialchars($beurteilung['ersteller_name']) ?><br>
-                <strong>Erstellt am:</strong> <?= date('d.m.Y', strtotime($beurteilung['erstelldatum'])) ?><br>
-                <?php if ($beurteilung['ueberarbeitungsdatum']): ?>
-                <strong>Überarbeitet am:</strong> <?= date('d.m.Y', strtotime($beurteilung['ueberarbeitungsdatum'])) ?>
+                <strong>Zeitraum:</strong> <?= date('d.m.Y', strtotime($projekt['zeitraum_von'])) ?> - <?= date('d.m.Y', strtotime($projekt['zeitraum_bis'])) ?><br>
+                <?php if ($projekt['aufbau_datum']): ?>
+                <strong>Aufbau:</strong> <?= date('d.m.Y', strtotime($projekt['aufbau_datum'])) ?><br>
                 <?php endif; ?>
+                <strong>Ersteller:</strong> <?= htmlspecialchars($erstellerName) ?>
             </td>
         </tr>
     </table>
 
     <div class="legend">
-        <strong>Legende:</strong><br>
+        <strong>Legende:</strong>
         <span class="legend-item"><strong>S</strong> = Schadenschwere (1-3)</span>
         <span class="legend-item"><strong>W</strong> = Wahrscheinlichkeit (1-3)</span>
         <span class="legend-item"><strong>R</strong> = Risiko (S² × W)</span>
@@ -140,75 +204,87 @@ function generatePDFView($beurteilung) {
         <span class="legend-item"><span class="stop-p">P</span> Persönlich (PSA)</span>
     </div>
 
-    <?php foreach ($beurteilung['taetigkeiten'] as $taetigkeit): ?>
-    <h2><?= htmlspecialchars($taetigkeit['position']) ?> - <?= htmlspecialchars($taetigkeit['name']) ?></h2>
+    <?php if (empty($gefaehrdungen)): ?>
+    <p><em>Keine Gefährdungen erfasst.</em></p>
+    <?php else: ?>
 
-    <?php if (!empty($taetigkeit['vorgaenge'])): ?>
+    <?php foreach ($gefNachKategorie as $katId => $katData): ?>
+    <h2><?= htmlspecialchars($katData['name']) ?></h2>
+
     <table>
         <thead>
             <tr>
-                <th style="width: 40px;">Pos.</th>
-                <th style="width: 12%;">Vorgang</th>
-                <th style="width: 15%;">Gefährdung</th>
-                <th style="width: 10%;">Gef.-Faktor</th>
-                <th style="width: 25px;" class="text-center">S</th>
-                <th style="width: 25px;" class="text-center">W</th>
-                <th style="width: 25px;" class="text-center">R</th>
-                <th style="width: 60px;" class="text-center">STOP</th>
-                <th style="width: 18%;">Maßnahmen</th>
-                <th style="width: 25px;" class="text-center">S</th>
-                <th style="width: 25px;" class="text-center">W</th>
-                <th style="width: 25px;" class="text-center">R</th>
-                <th style="width: 10%;">Regelungen</th>
+                <th style="width: 6%;">Nr.</th>
+                <th style="width: 18%;">Gefährdung</th>
+                <th style="width: 12%;">Gefährdungsart</th>
+                <th style="width: 4%;" class="text-center">S</th>
+                <th style="width: 4%;" class="text-center">W</th>
+                <th style="width: 4%;" class="text-center">R</th>
+                <th style="width: 8%;" class="text-center">STOP</th>
+                <th style="width: 22%;">Maßnahmen</th>
+                <th style="width: 4%;" class="text-center">S'</th>
+                <th style="width: 4%;" class="text-center">W'</th>
+                <th style="width: 4%;" class="text-center">R'</th>
+                <th style="width: 10%;">Verantw.</th>
             </tr>
         </thead>
         <tbody>
-            <?php foreach ($taetigkeit['vorgaenge'] as $vorgang): ?>
+            <?php
+            $lfdNr = 0;
+            foreach ($katData['items'] as $gef):
+                $lfdNr++;
+                $nummerPrefix = $katData['nummer'] != 999 ? $katData['nummer'] . '.' : '';
+                if ($gef['unterkategorie_nummer']) {
+                    $nummerPrefix .= $gef['unterkategorie_nummer'] . '.';
+                }
+                $vollNummer = $nummerPrefix . $lfdNr;
+
+                $rScore = $gef['risikobewertung'] ?? 0;
+                $rClass = $rScore <= 2 ? 'risk-low' : ($rScore <= 4 ? 'risk-medium' : ($rScore <= 8 ? 'risk-high' : 'risk-very-high'));
+
+                $rScoreNach = $gef['risikobewertung_nach'] ?? 0;
+                $rClassNach = $rScoreNach ? ($rScoreNach <= 2 ? 'risk-low' : ($rScoreNach <= 4 ? 'risk-medium' : ($rScoreNach <= 8 ? 'risk-high' : 'risk-very-high'))) : '';
+            ?>
             <tr>
-                <td><?= htmlspecialchars($vorgang['position']) ?></td>
-                <td><?= nl2br(htmlspecialchars($vorgang['vorgang_beschreibung'])) ?></td>
-                <td><?= nl2br(htmlspecialchars($vorgang['gefaehrdung'])) ?></td>
-                <td class="small">
-                    <?php if ($vorgang['faktor_nummer']): ?>
-                    <?= htmlspecialchars($vorgang['faktor_nummer']) ?><br>
-                    <?= htmlspecialchars($vorgang['faktor_name']) ?>
+                <td class="nummer"><?= $vollNummer ?></td>
+                <td>
+                    <strong><?= htmlspecialchars($gef['titel']) ?></strong>
+                    <?php if ($gef['unterkategorie_name']): ?>
+                    <br><span class="small"><?= $katData['nummer'] ?>.<?= $gef['unterkategorie_nummer'] ?> <?= htmlspecialchars($gef['unterkategorie_name']) ?></span>
                     <?php endif; ?>
                 </td>
-                <td class="text-center risk-<?= $vorgang['schadenschwere'] ?>"><?= $vorgang['schadenschwere'] ?></td>
-                <td class="text-center risk-<?= $vorgang['wahrscheinlichkeit'] ?>"><?= $vorgang['wahrscheinlichkeit'] ?></td>
-                <td class="text-center risk-<?= $vorgang['risikobewertung'] ?>"><?= $vorgang['risikobewertung'] ?></td>
+                <td class="small">
+                    <?php if ($gef['gefaehrdungsart_name']): ?>
+                    <?= $gef['gefaehrdungsart_nummer'] ?>. <?= htmlspecialchars($gef['gefaehrdungsart_name']) ?>
+                    <?php endif; ?>
+                </td>
+                <td class="text-center"><?= $gef['schadenschwere'] ?></td>
+                <td class="text-center"><?= $gef['wahrscheinlichkeit'] ?></td>
+                <td class="text-center <?= $rClass ?>"><?= $rScore ?></td>
                 <td class="text-center">
-                    <?php if ($vorgang['stop_s']): ?><span class="stop-s">S</span><?php endif; ?>
-                    <?php if ($vorgang['stop_t']): ?><span class="stop-t">T</span><?php endif; ?>
-                    <?php if ($vorgang['stop_o']): ?><span class="stop-o">O</span><?php endif; ?>
-                    <?php if ($vorgang['stop_p']): ?><span class="stop-p">P</span><?php endif; ?>
+                    <?php if ($gef['stop_s']): ?><span class="stop-s">S</span> <?php endif; ?>
+                    <?php if ($gef['stop_t']): ?><span class="stop-t">T</span> <?php endif; ?>
+                    <?php if ($gef['stop_o']): ?><span class="stop-o">O</span> <?php endif; ?>
+                    <?php if ($gef['stop_p']): ?><span class="stop-p">P</span> <?php endif; ?>
                 </td>
-                <td class="small"><?= nl2br(htmlspecialchars($vorgang['massnahmen'])) ?></td>
-                <td class="text-center <?= $vorgang['massnahme_schadenschwere'] ? 'risk-' . $vorgang['massnahme_schadenschwere'] : '' ?>">
-                    <?= $vorgang['massnahme_schadenschwere'] ?: '-' ?>
-                </td>
-                <td class="text-center <?= $vorgang['massnahme_wahrscheinlichkeit'] ? 'risk-' . $vorgang['massnahme_wahrscheinlichkeit'] : '' ?>">
-                    <?= $vorgang['massnahme_wahrscheinlichkeit'] ?: '-' ?>
-                </td>
-                <td class="text-center <?= $vorgang['massnahme_risikobewertung'] ? 'risk-' . $vorgang['massnahme_risikobewertung'] : '' ?>">
-                    <?= $vorgang['massnahme_risikobewertung'] ?: '-' ?>
-                </td>
-                <td class="small"><?= nl2br(htmlspecialchars($vorgang['gesetzliche_regelungen'])) ?></td>
+                <td class="small"><?= nl2br(htmlspecialchars($gef['massnahmen'] ?? '')) ?></td>
+                <td class="text-center"><?= $gef['schadenschwere_nach'] ?: '-' ?></td>
+                <td class="text-center"><?= $gef['wahrscheinlichkeit_nach'] ?: '-' ?></td>
+                <td class="text-center <?= $rClassNach ?>"><?= $rScoreNach ?: '-' ?></td>
+                <td class="small"><?= htmlspecialchars($gef['verantwortlich'] ?? '') ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
     </table>
-    <?php else: ?>
-    <p><em>Keine Gefährdungen erfasst.</em></p>
-    <?php endif; ?>
     <?php endforeach; ?>
-
-    <?php if ($beurteilung['bemerkungen']): ?>
-    <h2>Bemerkungen</h2>
-    <p><?= nl2br(htmlspecialchars($beurteilung['bemerkungen'])) ?></p>
     <?php endif; ?>
 
-    <div style="margin-top: 30px;">
+    <?php if ($projekt['beschreibung']): ?>
+    <h2>Projektbeschreibung</h2>
+    <p style="padding: 5px;"><?= nl2br(htmlspecialchars($projekt['beschreibung'])) ?></p>
+    <?php endif; ?>
+
+    <div style="margin-top: 20px;">
         <table class="header-table" style="width: 100%;">
             <tr>
                 <td style="width: 33%; text-align: center;">
@@ -226,15 +302,20 @@ function generatePDFView($beurteilung) {
             </tr>
         </table>
     </div>
+
+    <p style="margin-top: 15px; font-size: 7pt; color: #666; text-align: center;">
+        Erstellt am <?= date('d.m.Y H:i') ?> | GBU System
+    </p>
 </body>
 </html>
     <?php
 }
 
-function generateExcel($beurteilung) {
+function generateExcel($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerName) {
     // CSV-Export (kann in Excel geöffnet werden)
+    $filename = 'GBU_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $projekt['name']) . '_' . date('Y-m-d') . '.csv';
     header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="Gefaehrdungsbeurteilung_' . $beurteilung['id'] . '.csv"');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
 
     // BOM für UTF-8 in Excel
     echo "\xEF\xBB\xBF";
@@ -242,19 +323,22 @@ function generateExcel($beurteilung) {
     $output = fopen('php://output', 'w');
 
     // Header
-    fputcsv($output, ['Gefährdungsbeurteilung: ' . $beurteilung['titel']], ';');
-    fputcsv($output, ['Unternehmen: ' . $beurteilung['unternehmen_name']], ';');
-    fputcsv($output, ['Ersteller: ' . $beurteilung['ersteller_name']], ';');
-    fputcsv($output, ['Datum: ' . date('d.m.Y', strtotime($beurteilung['erstelldatum']))], ';');
+    fputcsv($output, ['Gefährdungsbeurteilung'], ';');
+    fputcsv($output, ['Projekt: ' . $projekt['name']], ';');
+    fputcsv($output, ['Location: ' . $projekt['location']], ';');
+    fputcsv($output, ['Zeitraum: ' . date('d.m.Y', strtotime($projekt['zeitraum_von'])) . ' - ' . date('d.m.Y', strtotime($projekt['zeitraum_bis']))], ';');
+    fputcsv($output, ['Ersteller: ' . $erstellerName], ';');
+    fputcsv($output, ['Export: ' . date('d.m.Y H:i')], ';');
     fputcsv($output, [], ';');
 
     // Spaltenüberschriften
     fputcsv($output, [
-        'Tätigkeit',
-        'Position',
-        'Vorgang',
-        'Gefährdung',
-        'Gefährdungsfaktor',
+        'Nr.',
+        'Kategorie',
+        'Unterkategorie',
+        'Gefährdung (Titel)',
+        'Beschreibung',
+        'Gefährdungsart',
         'Schadenschwere (S)',
         'Wahrscheinlichkeit (W)',
         'Risiko (R)',
@@ -266,32 +350,39 @@ function generateExcel($beurteilung) {
         'S nach Maßnahme',
         'W nach Maßnahme',
         'R nach Maßnahme',
-        'Gesetzliche Regelungen',
-        'Bemerkungen'
+        'Verantwortlich'
     ], ';');
 
     // Daten
-    foreach ($beurteilung['taetigkeiten'] as $taetigkeit) {
-        foreach ($taetigkeit['vorgaenge'] as $vorgang) {
+    foreach ($gefNachKategorie as $katId => $katData) {
+        $lfdNr = 0;
+        foreach ($katData['items'] as $gef) {
+            $lfdNr++;
+            $nummerPrefix = $katData['nummer'] != 999 ? $katData['nummer'] . '.' : '';
+            if ($gef['unterkategorie_nummer']) {
+                $nummerPrefix .= $gef['unterkategorie_nummer'] . '.';
+            }
+            $vollNummer = $nummerPrefix . $lfdNr;
+
             fputcsv($output, [
-                $taetigkeit['position'] . ' - ' . $taetigkeit['name'],
-                $vorgang['position'],
-                $vorgang['vorgang_beschreibung'],
-                $vorgang['gefaehrdung'],
-                $vorgang['faktor_nummer'] . ' ' . $vorgang['faktor_name'],
-                $vorgang['schadenschwere'],
-                $vorgang['wahrscheinlichkeit'],
-                $vorgang['risikobewertung'],
-                $vorgang['stop_s'] ? 'X' : '',
-                $vorgang['stop_t'] ? 'X' : '',
-                $vorgang['stop_o'] ? 'X' : '',
-                $vorgang['stop_p'] ? 'X' : '',
-                $vorgang['massnahmen'],
-                $vorgang['massnahme_schadenschwere'] ?: '',
-                $vorgang['massnahme_wahrscheinlichkeit'] ?: '',
-                $vorgang['massnahme_risikobewertung'] ?: '',
-                $vorgang['gesetzliche_regelungen'],
-                $vorgang['sonstige_bemerkungen']
+                $vollNummer,
+                $katData['name'],
+                $gef['unterkategorie_name'] ?? '',
+                $gef['titel'],
+                $gef['beschreibung'],
+                ($gef['gefaehrdungsart_nummer'] ?? '') . ' ' . ($gef['gefaehrdungsart_name'] ?? ''),
+                $gef['schadenschwere'],
+                $gef['wahrscheinlichkeit'],
+                $gef['risikobewertung'],
+                $gef['stop_s'] ? 'X' : '',
+                $gef['stop_t'] ? 'X' : '',
+                $gef['stop_o'] ? 'X' : '',
+                $gef['stop_p'] ? 'X' : '',
+                $gef['massnahmen'] ?? '',
+                $gef['schadenschwere_nach'] ?? '',
+                $gef['wahrscheinlichkeit_nach'] ?? '',
+                $gef['risikobewertung_nach'] ?? '',
+                $gef['verantwortlich'] ?? ''
             ], ';');
         }
     }

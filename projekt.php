@@ -284,9 +284,19 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                 <i class="bi bi-plus-circle me-2"></i>Neue Gefährdung
             </button>
             <?php endif; ?>
-            <a href="<?= BASE_URL ?>/api/export.php?type=projekt&id=<?= $projektId ?>" class="btn btn-outline-secondary">
-                <i class="bi bi-download me-2"></i>Export
-            </a>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="bi bi-download me-2"></i>Export
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="<?= BASE_URL ?>/api/export.php?id=<?= $projektId ?>&format=pdf" target="_blank">
+                        <i class="bi bi-file-earmark-pdf me-2"></i>PDF / Drucken
+                    </a></li>
+                    <li><a class="dropdown-item" href="<?= BASE_URL ?>/api/export.php?id=<?= $projektId ?>&format=csv">
+                        <i class="bi bi-file-earmark-excel me-2"></i>Excel (CSV)
+                    </a></li>
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -324,6 +334,24 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
     </div>
 
     <!-- Gefährdungsliste -->
+    <?php
+    // Gefährdungen nach Kategorien gruppieren
+    $gefNachKategorie = [];
+    foreach ($gefaehrdungen as $gef) {
+        $katKey = $gef['kategorie_id'] ? $gef['kategorie_id'] : 0;
+        $katName = $gef['kategorie_name'] ? $gef['kategorie_nummer'] . '. ' . $gef['kategorie_name'] : 'Ohne Kategorie';
+        if (!isset($gefNachKategorie[$katKey])) {
+            $gefNachKategorie[$katKey] = [
+                'name' => $katName,
+                'nummer' => $gef['kategorie_nummer'] ?? 999,
+                'items' => []
+            ];
+        }
+        $gefNachKategorie[$katKey]['items'][] = $gef;
+    }
+    uasort($gefNachKategorie, fn($a, $b) => ($a['nummer'] ?? 999) <=> ($b['nummer'] ?? 999));
+    ?>
+
     <?php if (empty($gefaehrdungen)): ?>
     <div class="card">
         <div class="card-body text-center py-5">
@@ -344,121 +372,159 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
     </div>
     <?php else: ?>
 
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>Erfasste Gefährdungen</h5>
-            <?php if ($canEdit): ?>
-            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#kategorieModal">
-                <i class="bi bi-plus me-1"></i>Kategorie hinzufügen
-            </button>
-            <?php endif; ?>
+    <!-- Toolbar -->
+    <div class="card mb-2">
+        <div class="card-body py-2">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <?php if ($canEdit): ?>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#kategorieModal">
+                        <i class="bi bi-plus me-1"></i>Kategorie hinzufügen
+                    </button>
+                    <?php endif; ?>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAllKategorien(true)">
+                        <i class="bi bi-arrows-expand"></i> Alle öffnen
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAllKategorien(false)">
+                        <i class="bi bi-arrows-collapse"></i> Alle schließen
+                    </button>
+                </div>
+            </div>
         </div>
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width: 5%">Nr.</th>
-                        <th style="width: 20%">Kategorie / Tätigkeit</th>
-                        <th style="width: 15%">Gefährdung</th>
-                        <th style="width: 10%">Risiko</th>
-                        <th style="width: 8%">STOP</th>
-                        <th style="width: 20%">Maßnahmen</th>
-                        <th style="width: 10%">R (nach)</th>
-                        <th style="width: 5%"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    $currentKat = null;
-                    $lfdNr = 0;
-                    foreach ($gefaehrdungen as $gef):
-                        $lfdNr++;
-                        $katDisplay = '';
-                        if ($gef['kategorie_name']) {
-                            $katDisplay = $gef['kategorie_nummer'] . '. ' . $gef['kategorie_name'];
-                            if ($gef['unterkategorie_name']) {
-                                $katDisplay .= '<br><small class="text-muted">' . $gef['kategorie_nummer'] . '.' . $gef['unterkategorie_nummer'] . ' ' . $gef['unterkategorie_name'] . '</small>';
-                            }
-                        }
-                    ?>
-                    <tr>
-                        <td><?= $lfdNr ?></td>
-                        <td><?= $katDisplay ?: '<span class="text-muted">-</span>' ?></td>
-                        <td>
-                            <strong><?= sanitize($gef['titel']) ?></strong>
-                            <?php if ($gef['gefaehrdungsart_name']): ?>
-                            <br><span class="badge bg-secondary"><?= $gef['gefaehrdungsart_nummer'] ?>. <?= sanitize($gef['gefaehrdungsart_name']) ?></span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php
-                            $rScore = $gef['risikobewertung'] ?? 0;
-                            $rColor = getRiskColor($rScore);
-                            ?>
-                            <span class="badge" style="background-color: <?= $rColor ?>; color: <?= $rScore >= 9 ? '#fff' : '#000' ?>">
-                                R = <?= $rScore ?>
-                            </span>
-                            <br><small class="text-muted">S=<?= $gef['schadenschwere'] ?> W=<?= $gef['wahrscheinlichkeit'] ?></small>
-                        </td>
-                        <td>
-                            <?php
-                            $stopBadges = [];
-                            if ($gef['stop_s']) $stopBadges[] = '<span class="badge bg-danger">S</span>';
-                            if ($gef['stop_t']) $stopBadges[] = '<span class="badge bg-warning text-dark">T</span>';
-                            if ($gef['stop_o']) $stopBadges[] = '<span class="badge bg-info">O</span>';
-                            if ($gef['stop_p']) $stopBadges[] = '<span class="badge bg-success">P</span>';
-                            echo $stopBadges ? implode(' ', $stopBadges) : '<span class="text-muted">-</span>';
-                            ?>
-                        </td>
-                        <td>
-                            <?php if ($gef['massnahmen']): ?>
-                            <small><?= nl2br(sanitize(substr($gef['massnahmen'], 0, 80))) ?><?= strlen($gef['massnahmen']) > 80 ? '...' : '' ?></small>
-                            <?php endif; ?>
-                            <?php if ($gef['gegenmassnahmen']): ?>
-                            <br><small class="text-success"><i class="bi bi-shield-check"></i> <?= sanitize(substr($gef['gegenmassnahmen'], 0, 50)) ?>...</small>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php if ($gef['risikobewertung_nach']): ?>
-                            <?php $rColorNach = getRiskColor($gef['risikobewertung_nach']); ?>
-                            <span class="badge" style="background-color: <?= $rColorNach ?>; color: <?= $gef['risikobewertung_nach'] >= 9 ? '#fff' : '#000' ?>">
-                                R = <?= $gef['risikobewertung_nach'] ?>
-                            </span>
-                            <?php else: ?>
-                            <span class="text-muted">-</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-link text-muted" data-bs-toggle="dropdown">
-                                    <i class="bi bi-three-dots-vertical"></i>
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li>
-                                        <a class="dropdown-item" href="#" onclick="editGefaehrdung(<?= htmlspecialchars(json_encode($gef)) ?>)">
-                                            <i class="bi bi-<?= $canEdit ? 'pencil' : 'eye' ?> me-2"></i><?= $canEdit ? 'Bearbeiten' : 'Details' ?>
-                                        </a>
-                                    </li>
-                                    <?php if ($canEdit): ?>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <form method="POST" onsubmit="return confirm('Gefährdung wirklich entfernen?')">
-                                            <input type="hidden" name="action" value="delete">
-                                            <input type="hidden" name="gefaehrdung_id" value="<?= $gef['id'] ?>">
-                                            <button type="submit" class="dropdown-item text-danger">
-                                                <i class="bi bi-trash me-2"></i>Entfernen
+    </div>
+
+    <!-- Accordion mit Kategorien -->
+    <div class="accordion" id="gefAccordion">
+        <?php foreach ($gefNachKategorie as $katId => $katData): ?>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button <?= count($gefNachKategorie) > 1 ? 'collapsed' : '' ?> py-2" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#gefKat_<?= $katId ?>">
+                    <strong><?= sanitize($katData['name']) ?></strong>
+                    <span class="badge bg-primary ms-2"><?= count($katData['items']) ?> Gefährdung(en)</span>
+                </button>
+            </h2>
+            <div id="gefKat_<?= $katId ?>" class="accordion-collapse collapse <?= count($gefNachKategorie) == 1 ? 'show' : '' ?>"
+                 data-bs-parent="#gefAccordion">
+                <div class="accordion-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 8%">Nr.</th>
+                                    <th style="width: 20%">Gefährdung</th>
+                                    <th style="width: 10%">Risiko</th>
+                                    <th style="width: 8%">STOP</th>
+                                    <th style="width: 25%">Maßnahmen</th>
+                                    <th style="width: 10%">R (nach)</th>
+                                    <th style="width: 8%">Verantw.</th>
+                                    <th style="width: 5%"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php
+                                $lfdNr = 0;
+                                foreach ($katData['items'] as $gef):
+                                    $lfdNr++;
+                                    // Nummer: Kategorie.Unterkategorie.lfdNr
+                                    $nummerPrefix = $katData['nummer'] != 999 ? $katData['nummer'] . '.' : '';
+                                    if ($gef['unterkategorie_nummer']) {
+                                        $nummerPrefix .= $gef['unterkategorie_nummer'] . '.';
+                                    }
+                                    $vollNummer = $nummerPrefix . $lfdNr;
+                                ?>
+                                <tr>
+                                    <td><strong><?= $vollNummer ?></strong></td>
+                                    <td>
+                                        <strong><?= sanitize($gef['titel']) ?></strong>
+                                        <?php if ($gef['gefaehrdungsart_name']): ?>
+                                        <br><span class="badge bg-secondary" style="font-size: 0.65rem;"><?= $gef['gefaehrdungsart_nummer'] ?>. <?= sanitize($gef['gefaehrdungsart_name']) ?></span>
+                                        <?php endif; ?>
+                                        <?php if ($gef['unterkategorie_name']): ?>
+                                        <br><small class="text-muted"><?= $katData['nummer'] ?>.<?= $gef['unterkategorie_nummer'] ?> <?= sanitize($gef['unterkategorie_name']) ?></small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $rScore = $gef['risikobewertung'] ?? 0;
+                                        $rColor = getRiskColor($rScore);
+                                        ?>
+                                        <span class="badge" style="background-color: <?= $rColor ?>; color: <?= $rScore >= 9 ? '#fff' : '#000' ?>">
+                                            R=<?= $rScore ?>
+                                        </span>
+                                        <br><small class="text-muted">S=<?= $gef['schadenschwere'] ?> W=<?= $gef['wahrscheinlichkeit'] ?></small>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $stopBadges = [];
+                                        if ($gef['stop_s']) $stopBadges[] = '<span class="badge bg-danger">S</span>';
+                                        if ($gef['stop_t']) $stopBadges[] = '<span class="badge bg-warning text-dark">T</span>';
+                                        if ($gef['stop_o']) $stopBadges[] = '<span class="badge bg-info">O</span>';
+                                        if ($gef['stop_p']) $stopBadges[] = '<span class="badge bg-success">P</span>';
+                                        echo $stopBadges ? implode(' ', $stopBadges) : '<span class="text-muted">-</span>';
+                                        ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($gef['massnahmen']): ?>
+                                        <small><?= nl2br(sanitize(substr($gef['massnahmen'], 0, 80))) ?><?= strlen($gef['massnahmen']) > 80 ? '...' : '' ?></small>
+                                        <?php else: ?>
+                                        <span class="text-muted">-</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($gef['risikobewertung_nach']): ?>
+                                        <?php $rColorNach = getRiskColor($gef['risikobewertung_nach']); ?>
+                                        <span class="badge" style="background-color: <?= $rColorNach ?>; color: <?= $gef['risikobewertung_nach'] >= 9 ? '#fff' : '#000' ?>">
+                                            R=<?= $gef['risikobewertung_nach'] ?>
+                                        </span>
+                                        <?php else: ?>
+                                        <span class="text-muted">-</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($gef['verantwortlich']): ?>
+                                        <small><?= sanitize($gef['verantwortlich']) ?></small>
+                                        <?php else: ?>
+                                        <span class="text-muted">-</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
+                                                <i class="bi bi-three-dots-vertical"></i>
                                             </button>
-                                        </form>
-                                    </li>
-                                    <?php endif; ?>
-                                </ul>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li>
+                                                    <a class="dropdown-item" href="#" onclick="editGefaehrdung(<?= htmlspecialchars(json_encode($gef)) ?>)">
+                                                        <i class="bi bi-<?= $canEdit ? 'pencil' : 'eye' ?> me-2"></i><?= $canEdit ? 'Bearbeiten' : 'Details' ?>
+                                                    </a>
+                                                </li>
+                                                <?php if ($canEdit): ?>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li>
+                                                    <form method="POST" onsubmit="return confirm('Gefährdung wirklich entfernen?')">
+                                                        <input type="hidden" name="action" value="delete">
+                                                        <input type="hidden" name="gefaehrdung_id" value="<?= $gef['id'] ?>">
+                                                        <button type="submit" class="dropdown-item text-danger">
+                                                            <i class="bi bi-trash me-2"></i>Entfernen
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                                <?php endif; ?>
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
+        <?php endforeach; ?>
     </div>
     <?php endif; ?>
 </div>
@@ -829,6 +895,17 @@ function getRiskLevel(r) {
     if (r <= 4) return 'Mittel';
     if (r <= 8) return 'Hoch';
     return 'Sehr hoch';
+}
+
+// Alle Kategorien öffnen/schließen
+function toggleAllKategorien(open) {
+    document.querySelectorAll('#gefAccordion .accordion-collapse').forEach(el => {
+        if (open) {
+            el.classList.add('show');
+        } else {
+            el.classList.remove('show');
+        }
+    });
 }
 
 // Bibliothek-Suche mit Accordion
