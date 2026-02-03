@@ -12,7 +12,7 @@ $db = Database::getInstance();
 $userId = $_SESSION['user_id'];
 $isAdmin = hasRole(ROLE_ADMIN);
 
-// Projekte des Benutzers laden (oder alle für Admin)
+// Projekte des Benutzers laden (oder alle für Admin) - ohne archivierte
 if ($isAdmin) {
     $projekte = $db->fetchAll("
         SELECT p.*,
@@ -21,6 +21,7 @@ if ($isAdmin) {
                'bearbeiten' as berechtigung
         FROM projekte p
         LEFT JOIN benutzer b ON p.erstellt_von = b.id
+        WHERE p.status != 'archiviert'
         ORDER BY p.status = 'aktiv' DESC, p.zeitraum_von DESC
     ");
 } else {
@@ -32,7 +33,7 @@ if ($isAdmin) {
         FROM projekte p
         JOIN benutzer_projekte bp ON p.id = bp.projekt_id
         LEFT JOIN benutzer b ON p.erstellt_von = b.id
-        WHERE bp.benutzer_id = ?
+        WHERE bp.benutzer_id = ? AND p.status != 'archiviert'
         ORDER BY p.status = 'aktiv' DESC, p.zeitraum_von DESC
     ", [$userId]);
 }

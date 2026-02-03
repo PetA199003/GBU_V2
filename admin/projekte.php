@@ -104,6 +104,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             break;
 
+        case 'archive':
+            $id = $_POST['id'];
+            $db->update('projekte', ['status' => 'archiviert'], 'id = :id', ['id' => $id]);
+            setFlashMessage('success', 'Projekt wurde archiviert.');
+            break;
+
+        case 'unarchive':
+            $id = $_POST['id'];
+            $db->update('projekte', ['status' => 'abgeschlossen'], 'id = :id', ['id' => $id]);
+            setFlashMessage('success', 'Projekt wurde wiederhergestellt.');
+            break;
+
         case 'assign_user':
             $projektId = $_POST['projekt_id'];
             $benutzerId = $_POST['benutzer_id'];
@@ -200,8 +212,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
     }
 
-    redirect('admin/projekte.php');
+    redirect('admin/projekte.php' . (isset($_GET['archiv']) ? '?archiv=1' : ''));
 }
+
+// Filter
+$showArchived = isset($_GET['archiv']) && $_GET['archiv'] == '1';
 
 // Projekte laden
 $projekte = $db->fetchAll("
@@ -211,8 +226,12 @@ $projekte = $db->fetchAll("
            (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id) as gef_count
     FROM projekte p
     LEFT JOIN benutzer b ON p.erstellt_von = b.id
+    WHERE p.status " . ($showArchived ? "= 'archiviert'" : "!= 'archiviert'") . "
     ORDER BY p.zeitraum_von DESC
 ");
+
+// Anzahl archivierter Projekte
+$archivedCount = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekte WHERE status = 'archiviert'")['cnt'];
 
 // Alle Benutzer laden (für Zuweisung)
 $alleBenutzer = $db->fetchAll("
@@ -234,12 +253,28 @@ require_once __DIR__ . '/../templates/header.php';
         <div>
             <h1 class="h3 mb-0">
                 <i class="bi bi-folder me-2"></i>Projektverwaltung
+                <?php if ($showArchived): ?>
+                <span class="badge bg-secondary">Archiv</span>
+                <?php endif; ?>
             </h1>
             <p class="text-muted mb-0">Projekte erstellen und Benutzer zuweisen</p>
         </div>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#projektModal">
-            <i class="bi bi-plus-lg me-2"></i>Neues Projekt
-        </button>
+        <div class="d-flex gap-2">
+            <?php if ($showArchived): ?>
+            <a href="<?= BASE_URL ?>/admin/projekte.php" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Aktive Projekte
+            </a>
+            <?php else: ?>
+            <?php if ($archivedCount > 0): ?>
+            <a href="<?= BASE_URL ?>/admin/projekte.php?archiv=1" class="btn btn-outline-secondary">
+                <i class="bi bi-archive me-2"></i>Archiv (<?= $archivedCount ?>)
+            </a>
+            <?php endif; ?>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#projektModal">
+                <i class="bi bi-plus-lg me-2"></i>Neues Projekt
+            </button>
+            <?php endif; ?>
+        </div>
     </div>
 
     <?php if (empty($projekte)): ?>
@@ -271,7 +306,16 @@ require_once __DIR__ . '/../templates/header.php';
                             <i class="bi bi-geo-alt me-1"></i><?= sanitize($p['location']) ?>
                         </small>
                     </div>
-                    <span class="badge bg-<?= $p['status'] === 'aktiv' ? 'success' : ($p['status'] === 'geplant' ? 'warning text-dark' : 'secondary') ?>">
+                    <?php
+                    $statusColors = [
+                        'geplant' => 'warning text-dark',
+                        'aktiv' => 'success',
+                        'abgeschlossen' => 'secondary',
+                        'archiviert' => 'dark'
+                    ];
+                    $statusColor = $statusColors[$p['status']] ?? 'secondary';
+                    ?>
+                    <span class="badge bg-<?= $statusColor ?>">
                         <?= ucfirst($p['status']) ?>
                     </span>
                 </div>
@@ -375,6 +419,21 @@ require_once __DIR__ . '/../templates/header.php';
                         </a>
                     </div>
                     <div class="btn-group btn-group-sm">
+                        <?php if ($p['status'] === 'archiviert'): ?>
+                        <!-- Archiviertes Projekt: Wiederherstellen -->
+                        <form method="POST" class="d-inline">
+                            <input type="hidden" name="action" value="unarchive">
+                            <input type="hidden" name="id" value="<?= $p['id'] ?>">
+                            <button type="submit" class="btn btn-outline-success" title="Wiederherstellen">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                            </button>
+                        </form>
+                        <button type="button" class="btn btn-outline-primary"
+                                onclick="editProjekt(<?= htmlspecialchars(json_encode($p)) ?>, <?= htmlspecialchars(json_encode(array_column($pTags, 'id'))) ?>)">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <?php else: ?>
+                        <!-- Aktives Projekt -->
                         <form method="POST" class="d-inline">
                             <input type="hidden" name="action" value="add_standard_gefaehrdungen">
                             <input type="hidden" name="projekt_id" value="<?= $p['id'] ?>">
@@ -386,14 +445,22 @@ require_once __DIR__ . '/../templates/header.php';
                                 onclick="editProjekt(<?= htmlspecialchars(json_encode($p)) ?>, <?= htmlspecialchars(json_encode(array_column($pTags, 'id'))) ?>)">
                             <i class="bi bi-pencil"></i>
                         </button>
+                        <form method="POST" class="d-inline" onsubmit="return confirm('Projekt wirklich archivieren?')">
+                            <input type="hidden" name="action" value="archive">
+                            <input type="hidden" name="id" value="<?= $p['id'] ?>">
+                            <button type="submit" class="btn btn-outline-secondary" title="Archivieren">
+                                <i class="bi bi-archive"></i>
+                            </button>
+                        </form>
                         <?php if ($p['gef_count'] == 0): ?>
                         <form method="POST" class="d-inline" onsubmit="return confirm('Projekt wirklich löschen?')">
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="id" value="<?= $p['id'] ?>">
-                            <button type="submit" class="btn btn-outline-danger">
+                            <button type="submit" class="btn btn-outline-danger" title="Löschen">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </form>
+                        <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -428,6 +495,7 @@ require_once __DIR__ . '/../templates/header.php';
                                 <option value="geplant">Geplant</option>
                                 <option value="aktiv">Aktiv</option>
                                 <option value="abgeschlossen">Abgeschlossen</option>
+                                <option value="archiviert">Archiviert</option>
                             </select>
                         </div>
                     </div>
