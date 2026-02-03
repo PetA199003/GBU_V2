@@ -82,7 +82,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                 'massnahmen' => $_POST['massnahmen'] ?: null,
                 'gegenmassnahmen' => $_POST['gegenmassnahmen'] ?: null,
                 'verantwortlich' => $_POST['verantwortlich'] ?: null,
-                'termin' => $_POST['termin'] ?: null,
                 'schadenschwere_nach' => $_POST['schadenschwere_nach'] ?: null,
                 'wahrscheinlichkeit_nach' => $_POST['wahrscheinlichkeit_nach'] ?: null
             ];
@@ -598,15 +597,9 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                                 <textarea class="form-control" name="gegenmassnahmen" id="gef_gegenmassnahmen" rows="3" placeholder="Zusätzliche Gegenmaßnahmen..."></textarea>
                             </div>
 
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Verantwortlich</label>
-                                    <input type="text" class="form-control" name="verantwortlich" id="gef_verantwortlich">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Termin</label>
-                                    <input type="date" class="form-control" name="termin" id="gef_termin">
-                                </div>
+                            <div class="mb-3">
+                                <label class="form-label">Verantwortlich</label>
+                                <input type="text" class="form-control" name="verantwortlich" id="gef_verantwortlich">
                             </div>
 
                             <hr>
@@ -813,7 +806,6 @@ function editGefaehrdung(data) {
     document.getElementById('gef_massnahmen').value = data.massnahmen || '';
     document.getElementById('gef_gegenmassnahmen').value = data.gegenmassnahmen || '';
     document.getElementById('gef_verantwortlich').value = data.verantwortlich || '';
-    document.getElementById('gef_termin').value = data.termin || '';
 
     document.getElementById('gef_schadenschwere_nach').value = data.schadenschwere_nach || '';
     document.getElementById('gef_wahrscheinlichkeit_nach').value = data.wahrscheinlichkeit_nach || '';
