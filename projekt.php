@@ -207,8 +207,40 @@ $unterkategorien = $db->fetchAll("
     ORDER BY ak.nummer, auk.nummer
 ", [$projektId]);
 
-// Bibliothek laden (für Modal)
-$bibliothek = $db->fetchAll("SELECT * FROM gefaehrdung_bibliothek ORDER BY titel");
+// Bibliothek laden (für Modal) - mit Kategorien
+$bibliothek = $db->fetchAll("
+    SELECT gb.*,
+           ga.name as gefaehrdungsart_name, ga.nummer as gefaehrdungsart_nummer,
+           ak.name as kategorie_name, ak.nummer as kategorie_nummer
+    FROM gefaehrdung_bibliothek gb
+    LEFT JOIN gefaehrdungsarten ga ON gb.gefaehrdungsart_id = ga.id
+    LEFT JOIN arbeits_kategorien ak ON gb.kategorie_id = ak.id
+    ORDER BY ak.nummer, gb.titel
+");
+
+// Bereits hinzugefügte Bibliotheks-IDs ermitteln
+$bereitsHinzugefuegt = $db->fetchAll(
+    "SELECT gefaehrdung_bibliothek_id FROM projekt_gefaehrdungen WHERE projekt_id = ? AND gefaehrdung_bibliothek_id IS NOT NULL",
+    [$projektId]
+);
+$bereitsHinzugefuegtIds = array_column($bereitsHinzugefuegt, 'gefaehrdung_bibliothek_id');
+
+// Bibliothek nach Kategorien gruppieren
+$bibliothekNachKategorie = [];
+foreach ($bibliothek as $bib) {
+    $katKey = $bib['kategorie_id'] ? $bib['kategorie_id'] : 0;
+    $katName = $bib['kategorie_name'] ? $bib['kategorie_nummer'] . '. ' . $bib['kategorie_name'] : 'Ohne Kategorie';
+    if (!isset($bibliothekNachKategorie[$katKey])) {
+        $bibliothekNachKategorie[$katKey] = [
+            'name' => $katName,
+            'nummer' => $bib['kategorie_nummer'] ?? 999,
+            'items' => []
+        ];
+    }
+    $bibliothekNachKategorie[$katKey]['items'][] = $bib;
+}
+// Nach Kategorienummer sortieren
+uasort($bibliothekNachKategorie, fn($a, $b) => ($a['nummer'] ?? 999) <=> ($b['nummer'] ?? 999));
 
 // Tags laden
 $tags = $db->fetchAll("SELECT * FROM gefaehrdung_tags ORDER BY sortierung");
@@ -433,39 +465,94 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
 
 <!-- Modal: Bibliothek -->
 <div class="modal fade" id="bibliothekModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-book me-2"></i>Gefährdung aus Bibliothek hinzufügen</h5>
+            <div class="modal-header py-2">
+                <h5 class="modal-title"><i class="bi bi-book me-2"></i>Aus Bibliothek hinzufügen</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <input type="text" class="form-control" id="bibliothekSuche" placeholder="Suchen...">
+            <div class="modal-body p-2">
+                <!-- Suche -->
+                <div class="mb-2">
+                    <input type="text" class="form-control form-control-sm" id="bibliothekSuche" placeholder="Suchen...">
                 </div>
-                <div class="row" id="bibliothekListe" style="max-height: 400px; overflow-y: auto;">
-                    <?php foreach ($bibliothek as $bib): ?>
-                    <div class="col-md-6 mb-3 bib-item" data-titel="<?= strtolower($bib['titel']) ?>">
-                        <div class="card h-100">
-                            <div class="card-body py-2">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <strong><?= sanitize($bib['titel']) ?></strong>
-                                    </div>
-                                    <form method="POST" class="ms-2">
-                                        <input type="hidden" name="action" value="add_from_library">
-                                        <input type="hidden" name="bibliothek_id" value="<?= $bib['id'] ?>">
-                                        <button type="submit" class="btn btn-sm btn-success" title="Hinzufügen">
-                                            <i class="bi bi-plus-lg"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                                <small class="text-muted"><?= sanitize(substr($bib['beschreibung'], 0, 100)) ?>...</small>
+
+                <!-- Accordion mit Kategorien -->
+                <div class="accordion" id="bibAccordion" style="max-height: 450px; overflow-y: auto;">
+                    <?php foreach ($bibliothekNachKategorie as $katId => $katData): ?>
+                    <?php
+                    $availableCount = count(array_filter($katData['items'], fn($b) => !in_array($b['id'], $bereitsHinzugefuegtIds)));
+                    $totalCount = count($katData['items']);
+                    ?>
+                    <div class="accordion-item bib-kategorie" data-kategorie="<?= $katId ?>">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#bibKat_<?= $katId ?>">
+                                <strong><?= sanitize($katData['name']) ?></strong>
+                                <span class="badge bg-<?= $availableCount > 0 ? 'primary' : 'secondary' ?> ms-2"><?= $availableCount ?>/<?= $totalCount ?></span>
+                            </button>
+                        </h2>
+                        <div id="bibKat_<?= $katId ?>" class="accordion-collapse collapse" data-bs-parent="#bibAccordion">
+                            <div class="accordion-body p-0">
+                                <table class="table table-sm table-hover mb-0">
+                                    <tbody>
+                                        <?php foreach ($katData['items'] as $bib):
+                                        $istHinzugefuegt = in_array($bib['id'], $bereitsHinzugefuegtIds);
+                                        ?>
+                                        <tr class="bib-item <?= $istHinzugefuegt ? 'table-secondary' : '' ?>"
+                                            data-titel="<?= strtolower($bib['titel']) ?>"
+                                            data-beschreibung="<?= strtolower($bib['beschreibung']) ?>">
+                                            <td style="width: 40px" class="text-center">
+                                                <?php if ($istHinzugefuegt): ?>
+                                                <i class="bi bi-check-circle-fill text-success" title="Bereits hinzugefügt"></i>
+                                                <?php else: ?>
+                                                <form method="POST" class="d-inline">
+                                                    <input type="hidden" name="action" value="add_from_library">
+                                                    <input type="hidden" name="bibliothek_id" value="<?= $bib['id'] ?>">
+                                                    <button type="submit" class="btn btn-sm btn-success py-0 px-1" title="Hinzufügen">
+                                                        <i class="bi bi-plus"></i>
+                                                    </button>
+                                                </form>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <strong class="<?= $istHinzugefuegt ? 'text-muted' : '' ?>"><?= sanitize($bib['titel']) ?></strong>
+                                                <?php if ($bib['gefaehrdungsart_name']): ?>
+                                                <br><small class="text-muted"><?= $bib['gefaehrdungsart_nummer'] ?>. <?= sanitize($bib['gefaehrdungsart_name']) ?></small>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="text-end" style="width: 60px">
+                                                <?php
+                                                $s = $bib['standard_schadenschwere'] ?? 2;
+                                                $w = $bib['standard_wahrscheinlichkeit'] ?? 2;
+                                                $r = $s * $s * $w;
+                                                $rColor = getRiskColor($r);
+                                                ?>
+                                                <span class="badge" style="background-color: <?= $rColor ?>; color: <?= $r >= 9 ? '#fff' : '#000' ?>; font-size: 0.7rem;">
+                                                    R=<?= $r ?>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
                     <?php endforeach; ?>
                 </div>
+
+                <?php if (empty($bibliothek)): ?>
+                <div class="text-center py-4 text-muted">
+                    <i class="bi bi-book display-6"></i>
+                    <p class="mt-2">Keine Gefährdungen in der Bibliothek vorhanden.</p>
+                </div>
+                <?php endif; ?>
+            </div>
+            <div class="modal-footer py-2">
+                <small class="text-muted me-auto">
+                    <i class="bi bi-check-circle-fill text-success"></i> = Bereits im Projekt
+                </small>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Schließen</button>
             </div>
         </div>
     </div>
@@ -744,12 +831,41 @@ function getRiskLevel(r) {
     return 'Sehr hoch';
 }
 
-// Bibliothek-Suche
+// Bibliothek-Suche mit Accordion
 document.getElementById('bibliothekSuche').addEventListener('input', function() {
     const search = this.value.toLowerCase();
-    document.querySelectorAll('.bib-item').forEach(item => {
-        item.style.display = item.dataset.titel.includes(search) ? '' : 'none';
+
+    // Alle Kategorien durchgehen
+    document.querySelectorAll('.bib-kategorie').forEach(kategorie => {
+        let visibleItems = 0;
+        const items = kategorie.querySelectorAll('.bib-item');
+
+        items.forEach(item => {
+            const titel = item.dataset.titel || '';
+            const beschreibung = item.dataset.beschreibung || '';
+            const matches = titel.includes(search) || beschreibung.includes(search);
+            item.style.display = matches ? '' : 'none';
+            if (matches) visibleItems++;
+        });
+
+        // Kategorie ausblenden wenn keine Treffer
+        kategorie.style.display = visibleItems > 0 ? '' : 'none';
+
+        // Bei Suche alle Kategorien mit Treffern öffnen
+        if (search && visibleItems > 0) {
+            const collapse = kategorie.querySelector('.accordion-collapse');
+            if (collapse && !collapse.classList.contains('show')) {
+                collapse.classList.add('show');
+            }
+        }
     });
+
+    // Bei leerer Suche alle schließen
+    if (!search) {
+        document.querySelectorAll('.bib-kategorie .accordion-collapse').forEach(c => {
+            c.classList.remove('show');
+        });
+    }
 });
 
 // Bibliothek-Checkbox
