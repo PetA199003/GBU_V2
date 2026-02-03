@@ -1,0 +1,407 @@
+/**
+ * Gefährdungsbeurteilung - Stylesheet
+ */
+
+:root {
+    --risk-low: #92D050;
+    --risk-medium: #FFFF00;
+    --risk-high: #FFC000;
+    --risk-critical: #FF0000;
+    --stop-s: #FF0000;
+    --stop-t: #FFC000;
+    --stop-o: #FFFF00;
+    --stop-p: #92D050;
+}
+
+/* Allgemeine Styles */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: #f8f9fa;
+}
+
+main {
+    flex: 1;
+}
+
+/* Login-Seite */
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+}
+
+.login-card {
+    width: 100%;
+    max-width: 420px;
+    padding: 2rem;
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+}
+
+.login-logo {
+    font-size: 3rem;
+    color: #0d6efd;
+    margin-bottom: 1rem;
+}
+
+/* Dashboard-Karten */
+.dashboard-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: none;
+    border-radius: 0.75rem;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.dashboard-card .card-icon {
+    font-size: 2.5rem;
+    opacity: 0.8;
+}
+
+/* Gefährdungsbeurteilung Tabelle */
+.gb-table {
+    font-size: 0.875rem;
+}
+
+.gb-table th {
+    background-color: #0d6efd;
+    color: white;
+    font-weight: 600;
+    vertical-align: middle;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.gb-table th.risk-header {
+    background-color: #dc3545;
+}
+
+.gb-table th.measure-header {
+    background-color: #198754;
+}
+
+.gb-table td {
+    vertical-align: middle;
+}
+
+.gb-table .position-cell {
+    font-weight: 600;
+    background-color: #f8f9fa;
+}
+
+/* Risikobewertung Zellen */
+.risk-cell {
+    font-weight: bold;
+    text-align: center;
+    min-width: 40px;
+}
+
+.risk-1, .risk-2 {
+    background-color: var(--risk-low) !important;
+}
+
+.risk-3, .risk-4 {
+    background-color: var(--risk-medium) !important;
+}
+
+.risk-6, .risk-8 {
+    background-color: var(--risk-high) !important;
+}
+
+.risk-9, .risk-12, .risk-18, .risk-27 {
+    background-color: var(--risk-critical) !important;
+    color: white;
+}
+
+/* STOP-Prinzip Badges */
+.stop-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-weight: bold;
+    font-size: 0.875rem;
+    margin: 2px;
+}
+
+.stop-s { background-color: var(--stop-s); color: white; }
+.stop-t { background-color: var(--stop-t); color: #333; }
+.stop-o { background-color: var(--stop-o); color: #333; }
+.stop-p { background-color: var(--stop-p); color: #333; }
+
+.stop-badge.inactive {
+    opacity: 0.3;
+}
+
+/* STOP-Prinzip Legende */
+.stop-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.stop-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.stop-legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+}
+
+/* Schadenschwere und Wahrscheinlichkeit Legende */
+.scale-legend {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.scale-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.scale-1 { background-color: var(--risk-low); }
+.scale-2 { background-color: var(--risk-medium); }
+.scale-3 { background-color: var(--risk-critical); color: white; }
+
+/* Editor Formulare */
+.editor-section {
+    background: white;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.editor-section h5 {
+    color: #0d6efd;
+    border-bottom: 2px solid #0d6efd;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Gefährdung Karten */
+.gefaehrdung-card {
+    border-left: 4px solid #0d6efd;
+    margin-bottom: 1rem;
+}
+
+.gefaehrdung-card.high-risk {
+    border-left-color: var(--risk-critical);
+}
+
+.gefaehrdung-card.medium-risk {
+    border-left-color: var(--risk-high);
+}
+
+/* Maßnahmen Checkliste */
+.massnahme-check {
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.massnahme-check:last-child {
+    border-bottom: none;
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 0.35rem 0.75rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-entwurf {
+    background-color: #6c757d;
+    color: white;
+}
+
+.status-aktiv {
+    background-color: #198754;
+    color: white;
+}
+
+.status-archiviert {
+    background-color: #adb5bd;
+    color: #495057;
+}
+
+/* Bibliothek Karten */
+.library-card {
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.library-card:hover {
+    border-color: #0d6efd;
+    box-shadow: 0 0.25rem 0.5rem rgba(13, 110, 253, 0.15);
+}
+
+.library-card.selected {
+    border-color: #0d6efd;
+    background-color: #f0f7ff;
+}
+
+/* Drag & Drop */
+.draggable {
+    cursor: move;
+}
+
+.draggable:hover {
+    background-color: #f8f9fa;
+}
+
+.drag-over {
+    border: 2px dashed #0d6efd;
+    background-color: #e7f1ff;
+}
+
+/* Responsive Tabelle */
+.table-responsive {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+/* Print Styles */
+@media print {
+    .navbar, .footer, .btn, .no-print {
+        display: none !important;
+    }
+
+    .gb-table {
+        font-size: 10pt;
+    }
+
+    .risk-cell {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+}
+
+/* Tooltip für Risikobewertung */
+.risk-tooltip {
+    position: relative;
+    cursor: help;
+}
+
+.risk-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.risk-tooltip:hover::after {
+    opacity: 1;
+}
+
+/* Modal Anpassungen */
+.modal-xl {
+    max-width: 1200px;
+}
+
+/* Sidebar Filter */
+.filter-sidebar {
+    background: white;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    position: sticky;
+    top: 1rem;
+}
+
+/* Breadcrumbs */
+.breadcrumb-item a {
+    text-decoration: none;
+}
+
+/* Formular Validierung */
+.was-validated .form-control:valid,
+.form-control.is-valid {
+    border-color: #198754;
+    background-image: none;
+}
+
+.was-validated .form-control:invalid,
+.form-control.is-invalid {
+    border-color: #dc3545;
+}
+
+/* Leere Zustände */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #6c757d;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+/* Ladeanimation */
+.loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+}
+
+/* Autocomplete */
+.autocomplete-suggestions {
+    position: absolute;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.autocomplete-suggestion {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+}
+
+.autocomplete-suggestion:hover {
+    background-color: #f8f9fa;
+}
+
+.autocomplete-suggestion.selected {
+    background-color: #0d6efd;
+    color: white;
+}
