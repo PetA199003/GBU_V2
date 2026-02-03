@@ -1,7 +1,7 @@
 <?php
 /**
  * Gefährdungsbibliothek
- * Gespeicherte Gefährdungen zur Wiederverwendung
+ * Gespeicherte Gefährdungen zur Wiederverwendung - Layout wie bei Projekten
  */
 
 require_once __DIR__ . '/../config/config.php';
@@ -14,6 +14,21 @@ $db = Database::getInstance();
 // Tags laden
 $tags = $db->fetchAll("SELECT * FROM gefaehrdung_tags ORDER BY sortierung");
 
+// Gefährdungsarten laden (die 13 festen)
+$gefaehrdungsarten = $db->fetchAll("SELECT * FROM gefaehrdungsarten ORDER BY nummer");
+
+// Kategorien laden (nur globale)
+$kategorien = $db->fetchAll("SELECT * FROM arbeits_kategorien WHERE ist_global = 1 ORDER BY nummer");
+
+// Unterkategorien laden
+$unterkategorien = $db->fetchAll("
+    SELECT auk.*, ak.nummer as kat_nummer
+    FROM arbeits_unterkategorien auk
+    JOIN arbeits_kategorien ak ON auk.kategorie_id = ak.id
+    WHERE ak.ist_global = 1
+    ORDER BY ak.nummer, auk.nummer
+");
+
 // Aktion verarbeiten
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -22,11 +37,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'create':
         case 'update':
             $data = [
+                'gefaehrdungsart_id' => $_POST['gefaehrdungsart_id'] ?: null,
+                'kategorie_id' => $_POST['kategorie_id'] ?: null,
+                'unterkategorie_id' => $_POST['unterkategorie_id'] ?: null,
                 'titel' => $_POST['titel'],
                 'beschreibung' => $_POST['beschreibung'],
-                'typische_massnahmen' => $_POST['typische_massnahmen'] ?: null,
-                'standard_schadenschwere' => $_POST['standard_schadenschwere'] ?? 2,
-                'standard_wahrscheinlichkeit' => $_POST['standard_wahrscheinlichkeit'] ?? 2,
+                'typische_massnahmen' => $_POST['massnahmen'] ?: null,
+                'standard_schadenschwere' => $_POST['schadenschwere'] ?? 2,
+                'standard_wahrscheinlichkeit' => $_POST['wahrscheinlichkeit'] ?? 2,
+                'stop_s' => isset($_POST['stop_s']) ? 1 : 0,
+                'stop_t' => isset($_POST['stop_t']) ? 1 : 0,
+                'stop_o' => isset($_POST['stop_o']) ? 1 : 0,
+                'stop_p' => isset($_POST['stop_p']) ? 1 : 0,
                 'ist_standard' => isset($_POST['ist_standard']) ? 1 : 0
             ];
 
@@ -79,9 +101,15 @@ $tagFilter = $_GET['tag'] ?? '';
 
 $sql = "
     SELECT gb.*,
+           ga.name as gefaehrdungsart_name, ga.nummer as gefaehrdungsart_nummer,
+           ak.name as kategorie_name, ak.nummer as kategorie_nummer,
+           auk.name as unterkategorie_name, auk.nummer as unterkategorie_nummer,
            CONCAT(b.vorname, ' ', b.nachname) as erstellt_von_name,
            (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE gefaehrdung_bibliothek_id = gb.id) as verwendung_count
     FROM gefaehrdung_bibliothek gb
+    LEFT JOIN gefaehrdungsarten ga ON gb.gefaehrdungsart_id = ga.id
+    LEFT JOIN arbeits_kategorien ak ON gb.kategorie_id = ak.id
+    LEFT JOIN arbeits_unterkategorien auk ON gb.unterkategorie_id = auk.id
     LEFT JOIN benutzer b ON gb.erstellt_von = b.id
 ";
 
@@ -104,7 +132,7 @@ if (!empty($where)) {
     $sql .= " WHERE " . implode(' AND ', $where);
 }
 
-$sql .= " ORDER BY gb.titel";
+$sql .= " ORDER BY ak.nummer, auk.nummer, gb.titel";
 
 $gefaehrdungen = $db->fetchAll($sql, $params);
 
@@ -138,6 +166,39 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
         </button>
     </div>
 
+    <!-- Statistik-Karten -->
+    <div class="row mb-4">
+        <?php
+        $totalGef = count($gefaehrdungen);
+        $standardGef = count(array_filter($gefaehrdungen, fn($g) => $g['ist_standard'] == 1));
+        $mitTags = count(array_filter($gefaehrdungen, fn($g) => !empty($gefTagsMap[$g['id']])));
+        ?>
+        <div class="col-md-4 col-6 mb-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body py-3">
+                    <h3 class="mb-0"><?= $totalGef ?></h3>
+                    <small>Gefährdungen gesamt</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-6 mb-3">
+            <div class="card bg-success text-white">
+                <div class="card-body py-3">
+                    <h3 class="mb-0"><?= $standardGef ?></h3>
+                    <small>Standard-Gefährdungen</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-6 mb-3">
+            <div class="card bg-info text-white">
+                <div class="card-body py-3">
+                    <h3 class="mb-0"><?= $mitTags ?></h3>
+                    <small>Mit Tags</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Filter -->
     <div class="card mb-4">
         <div class="card-body py-2">
@@ -166,9 +227,6 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
                     </a>
                     <?php endif; ?>
                 </div>
-                <div class="col-auto ms-auto">
-                    <span class="badge bg-secondary"><?= count($gefaehrdungen) ?> Einträge</span>
-                </div>
             </form>
         </div>
     </div>
@@ -178,7 +236,7 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
         <div class="card-body text-center py-5">
             <i class="bi bi-book display-4 text-muted"></i>
             <h5 class="mt-3">Keine Gefährdungen in der Bibliothek</h5>
-            <p class="text-muted">Erstellen Sie neue Gefährdungen oder speichern Sie Gefährdungen aus Projekten in der Bibliothek.</p>
+            <p class="text-muted">Erstellen Sie neue Gefährdungen oder speichern Sie Gefährdungen aus Projekten.</p>
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#gefaehrdungModal">
                 <i class="bi bi-plus-lg me-2"></i>Erste Gefährdung erstellen
             </button>
@@ -187,36 +245,47 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
     <?php else: ?>
 
     <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>Gefährdungen in der Bibliothek</h5>
+        </div>
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 25%">Titel</th>
-                        <th style="width: 30%">Beschreibung</th>
-                        <th style="width: 15%">Maßnahmen</th>
+                        <th style="width: 5%">Nr.</th>
+                        <th style="width: 18%">Kategorie / Tätigkeit</th>
+                        <th style="width: 18%">Gefährdung</th>
                         <th style="width: 10%">Risiko</th>
+                        <th style="width: 8%">STOP</th>
+                        <th style="width: 18%">Maßnahmen</th>
                         <th style="width: 10%">Tags</th>
                         <th style="width: 5%">Verw.</th>
                         <th style="width: 5%"></th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($gefaehrdungen as $gef): ?>
+                    <?php
+                    $lfdNr = 0;
+                    foreach ($gefaehrdungen as $gef):
+                        $lfdNr++;
+                        $katDisplay = '';
+                        if ($gef['kategorie_name']) {
+                            $katDisplay = $gef['kategorie_nummer'] . '. ' . $gef['kategorie_name'];
+                            if ($gef['unterkategorie_name']) {
+                                $katDisplay .= '<br><small class="text-muted">' . $gef['kategorie_nummer'] . '.' . $gef['unterkategorie_nummer'] . ' ' . $gef['unterkategorie_name'] . '</small>';
+                            }
+                        }
+                    ?>
                     <tr>
+                        <td><?= $lfdNr ?></td>
+                        <td><?= $katDisplay ?: '<span class="text-muted">-</span>' ?></td>
                         <td>
                             <strong><?= sanitize($gef['titel']) ?></strong>
                             <?php if ($gef['ist_standard']): ?>
                             <br><span class="badge bg-success">Standard</span>
                             <?php endif; ?>
-                        </td>
-                        <td>
-                            <small><?= sanitize(substr($gef['beschreibung'], 0, 100)) ?><?= strlen($gef['beschreibung']) > 100 ? '...' : '' ?></small>
-                        </td>
-                        <td>
-                            <?php if ($gef['typische_massnahmen']): ?>
-                            <small class="text-muted"><?= sanitize(substr($gef['typische_massnahmen'], 0, 60)) ?>...</small>
-                            <?php else: ?>
-                            <span class="text-muted">-</span>
+                            <?php if ($gef['gefaehrdungsart_name']): ?>
+                            <br><span class="badge bg-secondary"><?= $gef['gefaehrdungsart_nummer'] ?>. <?= sanitize($gef['gefaehrdungsart_name']) ?></span>
                             <?php endif; ?>
                         </td>
                         <td>
@@ -230,6 +299,23 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
                                 R = <?= $r ?>
                             </span>
                             <br><small class="text-muted">S=<?= $s ?> W=<?= $w ?></small>
+                        </td>
+                        <td>
+                            <?php
+                            $stopBadges = [];
+                            if ($gef['stop_s']) $stopBadges[] = '<span class="badge bg-danger">S</span>';
+                            if ($gef['stop_t']) $stopBadges[] = '<span class="badge bg-warning text-dark">T</span>';
+                            if ($gef['stop_o']) $stopBadges[] = '<span class="badge bg-info">O</span>';
+                            if ($gef['stop_p']) $stopBadges[] = '<span class="badge bg-success">P</span>';
+                            echo $stopBadges ? implode(' ', $stopBadges) : '<span class="text-muted">-</span>';
+                            ?>
+                        </td>
+                        <td>
+                            <?php if ($gef['typische_massnahmen']): ?>
+                            <small><?= nl2br(sanitize(substr($gef['typische_massnahmen'], 0, 80))) ?><?= strlen($gef['typische_massnahmen']) > 80 ? '...' : '' ?></small>
+                            <?php else: ?>
+                            <span class="text-muted">-</span>
+                            <?php endif; ?>
                         </td>
                         <td>
                             <?php if (!empty($gefTagsMap[$gef['id']])): ?>
@@ -279,74 +365,151 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
     <?php endif; ?>
 </div>
 
-<!-- Modal: Gefährdung -->
+<!-- Modal: Gefährdung - gleiches Layout wie bei Projekten -->
 <div class="modal fade" id="gefaehrdungModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
-            <form method="POST">
+            <form method="POST" id="gefaehrdungForm">
                 <input type="hidden" name="action" id="gef_action" value="create">
                 <input type="hidden" name="id" id="gef_id" value="">
 
                 <div class="modal-header">
-                    <h5 class="modal-title" id="modalTitle">Neue Gefährdung</h5>
+                    <h5 class="modal-title" id="modalTitle"><i class="bi bi-plus-circle me-2"></i>Neue Gefährdung</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Titel *</label>
-                        <input type="text" class="form-control" name="titel" id="gef_titel" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Beschreibung *</label>
-                        <textarea class="form-control" name="beschreibung" id="gef_beschreibung" rows="3" required></textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Typische Maßnahmen</label>
-                        <textarea class="form-control" name="typische_massnahmen" id="gef_massnahmen" rows="3"></textarea>
-                    </div>
-
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Standard-Schadenschwere</label>
-                            <select class="form-select" name="standard_schadenschwere" id="gef_schadenschwere">
-                                <?php foreach ($SCHADENSCHWERE as $val => $info): ?>
-                                <option value="<?= $val ?>" <?= $val == 2 ? 'selected' : '' ?>><?= $val ?> - <?= $info['name'] ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Standard-Wahrscheinlichkeit</label>
-                            <select class="form-select" name="standard_wahrscheinlichkeit" id="gef_wahrscheinlichkeit">
-                                <?php foreach ($WAHRSCHEINLICHKEIT as $val => $info): ?>
-                                <option value="<?= $val ?>" <?= $val == 2 ? 'selected' : '' ?>><?= $val ?> - <?= $info['name'] ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                    </div>
+                        <!-- Linke Spalte: Gefährdung -->
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-exclamation-triangle me-2"></i>Gefährdung</h6>
 
-                    <div class="mb-3">
-                        <label class="form-label">Tags (für automatische Zuweisung)</label>
-                        <div class="d-flex flex-wrap gap-2">
-                            <?php foreach ($tags as $tag): ?>
+                            <div class="mb-3">
+                                <label class="form-label">Gefährdung (Art) *</label>
+                                <select class="form-select" name="gefaehrdungsart_id" id="gef_gefaehrdungsart_id">
+                                    <option value="">-- Bitte wählen --</option>
+                                    <?php foreach ($gefaehrdungsarten as $ga): ?>
+                                    <option value="<?= $ga['id'] ?>"><?= $ga['nummer'] ?>. <?= sanitize($ga['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Kategorie</label>
+                                    <select class="form-select" name="kategorie_id" id="gef_kategorie_id" onchange="loadUnterkategorien(this.value)">
+                                        <option value="">-- Keine --</option>
+                                        <?php foreach ($kategorien as $kat): ?>
+                                        <option value="<?= $kat['id'] ?>"><?= $kat['nummer'] ?>. <?= sanitize($kat['name']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Unterkategorie</label>
+                                    <select class="form-select" name="unterkategorie_id" id="gef_unterkategorie_id">
+                                        <option value="">-- Keine --</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Titel *</label>
+                                <input type="text" class="form-control" name="titel" id="gef_titel" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Beschreibung *</label>
+                                <textarea class="form-control" name="beschreibung" id="gef_beschreibung" rows="3" required></textarea>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Schadenschwere (S) *</label>
+                                    <select class="form-select" name="schadenschwere" id="gef_schadenschwere" required onchange="updateRisiko()">
+                                        <?php foreach ($SCHADENSCHWERE as $val => $info): ?>
+                                        <option value="<?= $val ?>" <?= $val == 2 ? 'selected' : '' ?>><?= $val ?> - <?= $info['name'] ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Wahrscheinlichkeit (W) *</label>
+                                    <select class="form-select" name="wahrscheinlichkeit" id="gef_wahrscheinlichkeit" required onchange="updateRisiko()">
+                                        <?php foreach ($WAHRSCHEINLICHKEIT as $val => $info): ?>
+                                        <option value="<?= $val ?>" <?= $val == 2 ? 'selected' : '' ?>><?= $val ?> - <?= $info['name'] ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-secondary py-2">
+                                <strong>Risikobewertung:</strong> <span id="risikoAnzeige">R = 8</span>
+                            </div>
+                        </div>
+
+                        <!-- Rechte Spalte: Maßnahmen -->
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-shield-check me-2"></i>Maßnahmen</h6>
+
+                            <div class="mb-3">
+                                <label class="form-label">STOP-Prinzip (Mehrfachauswahl)</label>
+                                <div class="d-flex flex-wrap gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="stop_s" id="stop_s" value="1">
+                                        <label class="form-check-label" for="stop_s">
+                                            <span class="badge bg-danger">S</span> Substitution
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="stop_t" id="stop_t" value="1">
+                                        <label class="form-check-label" for="stop_t">
+                                            <span class="badge bg-warning text-dark">T</span> Technisch
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="stop_o" id="stop_o" value="1">
+                                        <label class="form-check-label" for="stop_o">
+                                            <span class="badge bg-info">O</span> Organisatorisch
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="stop_p" id="stop_p" value="1">
+                                        <label class="form-check-label" for="stop_p">
+                                            <span class="badge bg-success">P</span> Persönlich (PSA)
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Typische Maßnahmen</label>
+                                <textarea class="form-control" name="massnahmen" id="gef_massnahmen" rows="4" placeholder="Beschreiben Sie die typischen Schutzmaßnahmen..."></textarea>
+                            </div>
+
+                            <hr>
+                            <h6>Bibliothek-Optionen</h6>
+
+                            <div class="mb-3">
+                                <label class="form-label">Tags (für automatische Zuweisung)</label>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <?php foreach ($tags as $tag): ?>
+                                    <div class="form-check">
+                                        <input class="form-check-input tag-check" type="checkbox" name="tags[]"
+                                               value="<?= $tag['id'] ?>" id="tag_<?= $tag['id'] ?>">
+                                        <label class="form-check-label" for="tag_<?= $tag['id'] ?>">
+                                            <span class="badge" style="background-color: <?= $tag['farbe'] ?>"><?= sanitize($tag['name']) ?></span>
+                                        </label>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+
                             <div class="form-check">
-                                <input class="form-check-input tag-check" type="checkbox" name="tags[]"
-                                       value="<?= $tag['id'] ?>" id="tag_<?= $tag['id'] ?>">
-                                <label class="form-check-label" for="tag_<?= $tag['id'] ?>">
-                                    <span class="badge" style="background-color: <?= $tag['farbe'] ?>"><?= sanitize($tag['name']) ?></span>
+                                <input class="form-check-input" type="checkbox" name="ist_standard" id="gef_ist_standard" value="1">
+                                <label class="form-check-label" for="gef_ist_standard">
+                                    <strong>Als Standard-Gefährdung markieren</strong>
+                                    <br><small class="text-muted">Wird bei passenden Tags automatisch zu neuen Projekten hinzugefügt</small>
                                 </label>
                             </div>
-                            <?php endforeach; ?>
                         </div>
-                    </div>
-
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="ist_standard" id="gef_ist_standard" value="1">
-                        <label class="form-check-label" for="gef_ist_standard">
-                            <strong>Als Standard-Gefährdung markieren</strong>
-                            <br><small class="text-muted">Wird bei passenden Tags automatisch zu neuen Projekten hinzugefügt</small>
-                        </label>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -359,15 +522,63 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
 </div>
 
 <script>
+// Unterkategorien-Daten
+const unterkategorien = <?= json_encode($unterkategorien) ?>;
+
+function loadUnterkategorien(kategorieId) {
+    const select = document.getElementById('gef_unterkategorie_id');
+    select.innerHTML = '<option value="">-- Keine --</option>';
+
+    if (kategorieId) {
+        const filtered = unterkategorien.filter(uk => uk.kategorie_id == kategorieId);
+        filtered.forEach(uk => {
+            const option = document.createElement('option');
+            option.value = uk.id;
+            option.textContent = uk.kat_nummer + '.' + uk.nummer + ' ' + uk.name;
+            select.appendChild(option);
+        });
+    }
+}
+
+// Risiko berechnen
+function updateRisiko() {
+    const s = parseInt(document.getElementById('gef_schadenschwere').value) || 2;
+    const w = parseInt(document.getElementById('gef_wahrscheinlichkeit').value) || 2;
+    const r = s * s * w;
+    document.getElementById('risikoAnzeige').textContent = 'R = ' + r + ' (' + getRiskLevel(r) + ')';
+}
+
+function getRiskLevel(r) {
+    if (r <= 2) return 'Gering';
+    if (r <= 4) return 'Mittel';
+    if (r <= 8) return 'Hoch';
+    return 'Sehr hoch';
+}
+
+// Gefährdung bearbeiten
 function editGefaehrdung(data, gefTags) {
     document.getElementById('gef_action').value = 'update';
     document.getElementById('gef_id').value = data.id;
-    document.getElementById('modalTitle').textContent = 'Gefährdung bearbeiten';
+    document.getElementById('modalTitle').innerHTML = '<i class="bi bi-pencil me-2"></i>Gefährdung bearbeiten';
+
+    document.getElementById('gef_gefaehrdungsart_id').value = data.gefaehrdungsart_id || '';
+    document.getElementById('gef_kategorie_id').value = data.kategorie_id || '';
+    loadUnterkategorien(data.kategorie_id);
+    setTimeout(() => {
+        document.getElementById('gef_unterkategorie_id').value = data.unterkategorie_id || '';
+    }, 100);
+
     document.getElementById('gef_titel').value = data.titel;
     document.getElementById('gef_beschreibung').value = data.beschreibung;
-    document.getElementById('gef_massnahmen').value = data.typische_massnahmen || '';
     document.getElementById('gef_schadenschwere').value = data.standard_schadenschwere || 2;
     document.getElementById('gef_wahrscheinlichkeit').value = data.standard_wahrscheinlichkeit || 2;
+
+    document.getElementById('stop_s').checked = data.stop_s == 1;
+    document.getElementById('stop_t').checked = data.stop_t == 1;
+    document.getElementById('stop_o').checked = data.stop_o == 1;
+    document.getElementById('stop_p').checked = data.stop_p == 1;
+
+    document.getElementById('gef_massnahmen').value = data.typische_massnahmen || '';
     document.getElementById('gef_ist_standard').checked = data.ist_standard == 1;
 
     // Tags setzen
@@ -379,16 +590,22 @@ function editGefaehrdung(data, gefTags) {
         });
     }
 
+    updateRisiko();
     new bootstrap.Modal(document.getElementById('gefaehrdungModal')).show();
 }
 
+// Modal zurücksetzen
 document.getElementById('gefaehrdungModal').addEventListener('hidden.bs.modal', function() {
     document.getElementById('gef_action').value = 'create';
     document.getElementById('gef_id').value = '';
-    document.getElementById('modalTitle').textContent = 'Neue Gefährdung';
+    document.getElementById('modalTitle').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Neue Gefährdung';
     document.querySelectorAll('.tag-check').forEach(cb => cb.checked = false);
     this.querySelector('form').reset();
+    updateRisiko();
 });
+
+// Initial
+updateRisiko();
 </script>
 
 <?php require_once __DIR__ . '/../templates/footer.php'; ?>

@@ -257,9 +257,8 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
         $totalGef = count($gefaehrdungen);
         $hoheRisiken = count(array_filter($gefaehrdungen, fn($g) => ($g['risikobewertung'] ?? 0) >= 9));
         $mitMassnahmen = count(array_filter($gefaehrdungen, fn($g) => !empty($g['massnahmen'])));
-        $mitGegenmassnahmen = count(array_filter($gefaehrdungen, fn($g) => !empty($g['gegenmassnahmen'])));
         ?>
-        <div class="col-md-3 col-6 mb-3">
+        <div class="col-md-4 col-6 mb-3">
             <div class="card bg-primary text-white">
                 <div class="card-body py-3">
                     <h3 class="mb-0"><?= $totalGef ?></h3>
@@ -267,7 +266,7 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                 </div>
             </div>
         </div>
-        <div class="col-md-3 col-6 mb-3">
+        <div class="col-md-4 col-6 mb-3">
             <div class="card bg-danger text-white">
                 <div class="card-body py-3">
                     <h3 class="mb-0"><?= $hoheRisiken ?></h3>
@@ -275,19 +274,11 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                 </div>
             </div>
         </div>
-        <div class="col-md-3 col-6 mb-3">
-            <div class="card bg-warning text-dark">
+        <div class="col-md-4 col-6 mb-3">
+            <div class="card bg-success text-white">
                 <div class="card-body py-3">
                     <h3 class="mb-0"><?= $mitMassnahmen ?></h3>
                     <small>Mit Maßnahmen</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 col-6 mb-3">
-            <div class="card bg-success text-white">
-                <div class="card-body py-3">
-                    <h3 class="mb-0"><?= $mitGegenmassnahmen ?></h3>
-                    <small>Mit Gegenmaßnahmen</small>
                 </div>
             </div>
         </div>
@@ -589,12 +580,7 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
 
                             <div class="mb-3">
                                 <label class="form-label">Maßnahmen</label>
-                                <textarea class="form-control" name="massnahmen" id="gef_massnahmen" rows="3" placeholder="Beschreiben Sie die Schutzmaßnahmen..."></textarea>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Gegenmaßnahmen</label>
-                                <textarea class="form-control" name="gegenmassnahmen" id="gef_gegenmassnahmen" rows="3" placeholder="Zusätzliche Gegenmaßnahmen..."></textarea>
+                                <textarea class="form-control" name="massnahmen" id="gef_massnahmen" rows="4" placeholder="Beschreiben Sie die Schutzmaßnahmen..."></textarea>
                             </div>
 
                             <div class="mb-3">
@@ -804,7 +790,6 @@ function editGefaehrdung(data) {
     document.getElementById('stop_p').checked = data.stop_p == 1;
 
     document.getElementById('gef_massnahmen').value = data.massnahmen || '';
-    document.getElementById('gef_gegenmassnahmen').value = data.gegenmassnahmen || '';
     document.getElementById('gef_verantwortlich').value = data.verantwortlich || '';
 
     document.getElementById('gef_schadenschwere_nach').value = data.schadenschwere_nach || '';
