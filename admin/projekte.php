@@ -1,6 +1,6 @@
 <?php
 /**
- * Projektverwaltung
+ * Projektverwaltung (Admin)
  */
 
 require_once __DIR__ . '/../config/config.php';
@@ -35,10 +35,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($action === 'create') {
                     $data['erstellt_von'] = $_SESSION['user_id'];
                     $projektId = $db->insert('projekte', $data);
+
+                    // Tags speichern
+                    if (!empty($_POST['tags']) && is_array($_POST['tags'])) {
+                        foreach ($_POST['tags'] as $tagId) {
+                            $db->query(
+                                "INSERT IGNORE INTO projekt_tags (projekt_id, tag_id) VALUES (?, ?)",
+                                [$projektId, $tagId]
+                            );
+                        }
+                    }
+
+                    // Indoor/Outdoor-Tags automatisch setzen
+                    $autoTags = [];
+                    if ($data['indoor_outdoor'] === 'indoor' || $data['indoor_outdoor'] === 'beides') {
+                        $indoorTag = $db->fetchOne("SELECT id FROM gefaehrdung_tags WHERE name = 'indoor'");
+                        if ($indoorTag) $autoTags[] = $indoorTag['id'];
+                    }
+                    if ($data['indoor_outdoor'] === 'outdoor' || $data['indoor_outdoor'] === 'beides') {
+                        $outdoorTag = $db->fetchOne("SELECT id FROM gefaehrdung_tags WHERE name = 'outdoor'");
+                        if ($outdoorTag) $autoTags[] = $outdoorTag['id'];
+                    }
+                    // Standard-Tag immer setzen
+                    $standardTag = $db->fetchOne("SELECT id FROM gefaehrdung_tags WHERE name = 'standard'");
+                    if ($standardTag) $autoTags[] = $standardTag['id'];
+
+                    foreach ($autoTags as $tagId) {
+                        $db->query(
+                            "INSERT IGNORE INTO projekt_tags (projekt_id, tag_id) VALUES (?, ?)",
+                            [$projektId, $tagId]
+                        );
+                    }
+
                     setFlashMessage('success', 'Projekt wurde erstellt.');
                 } else {
                     $id = $_POST['id'];
                     $db->update('projekte', $data, 'id = :id', ['id' => $id]);
+
+                    // Tags aktualisieren
+                    $db->delete('projekt_tags', 'projekt_id = ?', [$id]);
+                    if (!empty($_POST['tags']) && is_array($_POST['tags'])) {
+                        foreach ($_POST['tags'] as $tagId) {
+                            $db->query(
+                                "INSERT IGNORE INTO projekt_tags (projekt_id, tag_id) VALUES (?, ?)",
+                                [$id, $tagId]
+                            );
+                        }
+                    }
+
                     setFlashMessage('success', 'Projekt wurde aktualisiert.');
                 }
             }
@@ -47,12 +91,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'delete':
             $id = $_POST['id'];
             $count = $db->fetchOne(
-                "SELECT COUNT(*) as cnt FROM gefaehrdungsbeurteilungen WHERE projekt_id = ?",
+                "SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen WHERE projekt_id = ?",
                 [$id]
             );
             if ($count['cnt'] > 0) {
-                setFlashMessage('error', 'Projekt kann nicht gelöscht werden, da noch Beurteilungen existieren.');
+                setFlashMessage('error', 'Projekt kann nicht gelöscht werden, da noch Gefährdungen existieren.');
             } else {
+                $db->delete('projekt_tags', 'projekt_id = ?', [$id]);
+                $db->delete('benutzer_projekte', 'projekt_id = ?', [$id]);
                 $db->delete('projekte', 'id = ?', [$id]);
                 setFlashMessage('success', 'Projekt wurde gelöscht.');
             }
@@ -61,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'assign_user':
             $projektId = $_POST['projekt_id'];
             $benutzerId = $_POST['benutzer_id'];
+            $berechtigung = $_POST['berechtigung'] ?? 'ansehen';
 
             // Prüfen ob bereits zugewiesen
             $exists = $db->fetchOne(
@@ -72,11 +119,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->insert('benutzer_projekte', [
                     'benutzer_id' => $benutzerId,
                     'projekt_id' => $projektId,
+                    'berechtigung' => $berechtigung,
                     'zugewiesen_von' => $_SESSION['user_id']
                 ]);
                 setFlashMessage('success', 'Benutzer wurde dem Projekt zugewiesen.');
             } else {
-                setFlashMessage('warning', 'Benutzer ist bereits zugewiesen.');
+                // Berechtigung aktualisieren
+                $db->update(
+                    'benutzer_projekte',
+                    ['berechtigung' => $berechtigung],
+                    'benutzer_id = :bid AND projekt_id = :pid',
+                    ['bid' => $benutzerId, 'pid' => $projektId]
+                );
+                setFlashMessage('success', 'Berechtigung wurde aktualisiert.');
             }
             break;
 
@@ -85,6 +140,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $benutzerId = $_POST['benutzer_id'];
             $db->delete('benutzer_projekte', 'benutzer_id = ? AND projekt_id = ?', [$benutzerId, $projektId]);
             setFlashMessage('success', 'Benutzer wurde vom Projekt entfernt.');
+            break;
+
+        case 'add_standard_gefaehrdungen':
+            $projektId = $_POST['projekt_id'];
+
+            // Projekt-Tags laden
+            $projektTagIds = $db->fetchAll(
+                "SELECT tag_id FROM projekt_tags WHERE projekt_id = ?",
+                [$projektId]
+            );
+            $tagIds = array_column($projektTagIds, 'tag_id');
+
+            if (empty($tagIds)) {
+                setFlashMessage('warning', 'Keine Tags für dieses Projekt definiert.');
+                break;
+            }
+
+            // Gefährdungen mit passenden Tags finden
+            $placeholders = implode(',', array_fill(0, count($tagIds), '?'));
+            $gefaehrdungen = $db->fetchAll("
+                SELECT DISTINCT gb.*
+                FROM gefaehrdung_bibliothek gb
+                JOIN gefaehrdung_bibliothek_tags gbt ON gb.id = gbt.gefaehrdung_id
+                WHERE gbt.tag_id IN ($placeholders)
+            ", $tagIds);
+
+            $addedCount = 0;
+            foreach ($gefaehrdungen as $gef) {
+                // Prüfen ob bereits vorhanden
+                $exists = $db->fetchOne(
+                    "SELECT id FROM projekt_gefaehrdungen WHERE projekt_id = ? AND gefaehrdung_bibliothek_id = ?",
+                    [$projektId, $gef['id']]
+                );
+
+                if (!$exists) {
+                    $db->insert('projekt_gefaehrdungen', [
+                        'projekt_id' => $projektId,
+                        'gefaehrdung_bibliothek_id' => $gef['id'],
+                        'titel' => $gef['titel'],
+                        'beschreibung' => $gef['beschreibung'],
+                        'kategorie_id' => $gef['kategorie_id'],
+                        'faktor_id' => $gef['faktor_id'],
+                        'schadenschwere' => $gef['standard_schadenschwere'] ?? 2,
+                        'wahrscheinlichkeit' => $gef['standard_wahrscheinlichkeit'] ?? 2,
+                        'massnahmen' => $gef['typische_massnahmen'],
+                        'erstellt_von' => $_SESSION['user_id']
+                    ]);
+                    $addedCount++;
+                }
+            }
+
+            setFlashMessage('success', "$addedCount Standard-Gefährdungen wurden hinzugefügt.");
             break;
     }
 
@@ -96,7 +203,7 @@ $projekte = $db->fetchAll("
     SELECT p.*,
            CONCAT(b.vorname, ' ', b.nachname) as erstellt_von_name,
            (SELECT COUNT(*) FROM benutzer_projekte WHERE projekt_id = p.id) as benutzer_count,
-           (SELECT COUNT(*) FROM gefaehrdungsbeurteilungen WHERE projekt_id = p.id) as gb_count
+           (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id) as gef_count
     FROM projekte p
     LEFT JOIN benutzer b ON p.erstellt_von = b.id
     ORDER BY p.zeitraum_von DESC
@@ -110,6 +217,9 @@ $alleBenutzer = $db->fetchAll("
     ORDER BY nachname, vorname
 ");
 
+// Tags laden
+$tags = $db->fetchAll("SELECT * FROM gefaehrdung_tags ORDER BY sortierung");
+
 $pageTitle = 'Projektverwaltung';
 require_once __DIR__ . '/../templates/header.php';
 ?>
@@ -120,6 +230,7 @@ require_once __DIR__ . '/../templates/header.php';
             <h1 class="h3 mb-0">
                 <i class="bi bi-folder me-2"></i>Projektverwaltung
             </h1>
+            <p class="text-muted mb-0">Projekte erstellen und Benutzer zuweisen</p>
         </div>
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#projektModal">
             <i class="bi bi-plus-lg me-2"></i>Neues Projekt
@@ -138,6 +249,14 @@ require_once __DIR__ . '/../templates/header.php';
 
     <div class="row">
         <?php foreach ($projekte as $p): ?>
+        <?php
+        // Projekt-Tags laden
+        $pTags = $db->fetchAll("
+            SELECT gt.* FROM gefaehrdung_tags gt
+            JOIN projekt_tags pt ON gt.id = pt.tag_id
+            WHERE pt.projekt_id = ?
+        ", [$p['id']]);
+        ?>
         <div class="col-lg-6 mb-4">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -147,7 +266,7 @@ require_once __DIR__ . '/../templates/header.php';
                             <i class="bi bi-geo-alt me-1"></i><?= sanitize($p['location']) ?>
                         </small>
                     </div>
-                    <span class="badge bg-<?= $p['status'] === 'aktiv' ? 'success' : ($p['status'] === 'geplant' ? 'warning' : 'secondary') ?>">
+                    <span class="badge bg-<?= $p['status'] === 'aktiv' ? 'success' : ($p['status'] === 'geplant' ? 'warning text-dark' : 'secondary') ?>">
                         <?= ucfirst($p['status']) ?>
                     </span>
                 </div>
@@ -182,13 +301,23 @@ require_once __DIR__ . '/../templates/header.php';
                     </div>
                     <?php endif; ?>
 
+                    <!-- Projekt-Tags -->
+                    <?php if (!empty($pTags)): ?>
+                    <div class="mb-3">
+                        <small class="text-muted">Tags:</small><br>
+                        <?php foreach ($pTags as $tag): ?>
+                        <span class="badge" style="background-color: <?= $tag['farbe'] ?>"><?= sanitize($tag['name']) ?></span>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+
                     <!-- Zugewiesene Benutzer -->
                     <h6 class="mt-3">
                         <i class="bi bi-people me-1"></i>Zugewiesene Benutzer (<?= $p['benutzer_count'] ?>)
                     </h6>
                     <?php
                     $zugewieseneBenutzer = $db->fetchAll("
-                        SELECT b.id, b.vorname, b.nachname, b.benutzername
+                        SELECT b.id, b.vorname, b.nachname, b.benutzername, bp.berechtigung
                         FROM benutzer b
                         JOIN benutzer_projekte bp ON b.id = bp.benutzer_id
                         WHERE bp.projekt_id = ?
@@ -200,13 +329,14 @@ require_once __DIR__ . '/../templates/header.php';
                     <?php else: ?>
                     <div class="d-flex flex-wrap gap-2 mb-2">
                         <?php foreach ($zugewieseneBenutzer as $bu): ?>
-                        <span class="badge bg-secondary d-flex align-items-center gap-1">
+                        <span class="badge bg-<?= $bu['berechtigung'] === 'bearbeiten' ? 'primary' : 'secondary' ?> d-flex align-items-center gap-1">
+                            <i class="bi bi-<?= $bu['berechtigung'] === 'bearbeiten' ? 'pencil' : 'eye' ?>"></i>
                             <?= sanitize($bu['vorname'] . ' ' . $bu['nachname']) ?>
                             <form method="POST" class="d-inline">
                                 <input type="hidden" name="action" value="remove_user">
                                 <input type="hidden" name="projekt_id" value="<?= $p['id'] ?>">
                                 <input type="hidden" name="benutzer_id" value="<?= $bu['id'] ?>">
-                                <button type="submit" class="btn-close btn-close-white" style="font-size: 0.6rem;" title="Entfernen"></button>
+                                <button type="submit" class="btn-close btn-close-white" style="font-size: 0.5rem;" title="Entfernen"></button>
                             </form>
                         </span>
                         <?php endforeach; ?>
@@ -217,11 +347,15 @@ require_once __DIR__ . '/../templates/header.php';
                     <form method="POST" class="d-flex gap-2">
                         <input type="hidden" name="action" value="assign_user">
                         <input type="hidden" name="projekt_id" value="<?= $p['id'] ?>">
-                        <select name="benutzer_id" class="form-select form-select-sm" required>
-                            <option value="">Benutzer hinzufügen...</option>
+                        <select name="benutzer_id" class="form-select form-select-sm" required style="flex: 2;">
+                            <option value="">Benutzer...</option>
                             <?php foreach ($alleBenutzer as $bu): ?>
-                            <option value="<?= $bu['id'] ?>"><?= sanitize($bu['vorname'] . ' ' . $bu['nachname']) ?> (<?= sanitize($bu['benutzername']) ?>)</option>
+                            <option value="<?= $bu['id'] ?>"><?= sanitize($bu['vorname'] . ' ' . $bu['nachname']) ?></option>
                             <?php endforeach; ?>
+                        </select>
+                        <select name="berechtigung" class="form-select form-select-sm" style="flex: 1;">
+                            <option value="ansehen">Ansehen</option>
+                            <option value="bearbeiten">Bearbeiten</option>
                         </select>
                         <button type="submit" class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-plus"></i>
@@ -229,13 +363,25 @@ require_once __DIR__ . '/../templates/header.php';
                     </form>
                 </div>
                 <div class="card-footer d-flex justify-content-between align-items-center">
-                    <span class="badge bg-primary"><?= $p['gb_count'] ?> Beurteilung(en)</span>
+                    <div>
+                        <span class="badge bg-primary"><?= $p['gef_count'] ?> Gefährdung(en)</span>
+                        <a href="<?= BASE_URL ?>/projekt.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-outline-primary ms-2">
+                            <i class="bi bi-eye me-1"></i>Ansehen
+                        </a>
+                    </div>
                     <div class="btn-group btn-group-sm">
+                        <form method="POST" class="d-inline">
+                            <input type="hidden" name="action" value="add_standard_gefaehrdungen">
+                            <input type="hidden" name="projekt_id" value="<?= $p['id'] ?>">
+                            <button type="submit" class="btn btn-outline-success" title="Standard-Gefährdungen hinzufügen">
+                                <i class="bi bi-magic"></i>
+                            </button>
+                        </form>
                         <button type="button" class="btn btn-outline-primary"
-                                onclick="editProjekt(<?= htmlspecialchars(json_encode($p)) ?>)">
+                                onclick="editProjekt(<?= htmlspecialchars(json_encode($p)) ?>, <?= htmlspecialchars(json_encode(array_column($pTags, 'id'))) ?>)">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        <?php if ($p['gb_count'] == 0): ?>
+                        <?php if ($p['gef_count'] == 0): ?>
                         <form method="POST" class="d-inline" onsubmit="return confirm('Projekt wirklich löschen?')">
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="id" value="<?= $p['id'] ?>">
@@ -319,6 +465,23 @@ require_once __DIR__ . '/../templates/header.php';
                     </div>
 
                     <div class="mb-3">
+                        <label class="form-label">Zusätzliche Tags (für automatische Gefährdungen)</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            <?php foreach ($tags as $tag): ?>
+                            <?php if (!in_array($tag['name'], ['indoor', 'outdoor', 'standard'])): ?>
+                            <div class="form-check">
+                                <input class="form-check-input tag-check" type="checkbox" name="tags[]" value="<?= $tag['id'] ?>" id="ptag_<?= $tag['id'] ?>">
+                                <label class="form-check-label" for="ptag_<?= $tag['id'] ?>">
+                                    <span class="badge" style="background-color: <?= $tag['farbe'] ?>"><?= sanitize($tag['name']) ?></span>
+                                </label>
+                            </div>
+                            <?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
+                        <small class="text-muted">Indoor/Outdoor wird automatisch basierend auf der Auswahl oben gesetzt.</small>
+                    </div>
+
+                    <div class="mb-3">
                         <label class="form-label">Beschreibung</label>
                         <textarea class="form-control" name="beschreibung" id="p_beschreibung" rows="3"></textarea>
                     </div>
@@ -333,7 +496,7 @@ require_once __DIR__ . '/../templates/header.php';
 </div>
 
 <script>
-function editProjekt(data) {
+function editProjekt(data, tagIds) {
     document.getElementById('projekt_action').value = 'update';
     document.getElementById('projekt_id').value = data.id;
     document.getElementById('projektModalTitle').textContent = 'Projekt bearbeiten';
@@ -347,6 +510,11 @@ function editProjekt(data) {
     document.getElementById('p_status').value = data.status;
     document.getElementById('p_beschreibung').value = data.beschreibung || '';
 
+    // Tags setzen
+    document.querySelectorAll('.tag-check').forEach(cb => {
+        cb.checked = tagIds.includes(parseInt(cb.value));
+    });
+
     new bootstrap.Modal(document.getElementById('projektModal')).show();
 }
 
@@ -354,6 +522,7 @@ document.getElementById('projektModal').addEventListener('hidden.bs.modal', func
     document.getElementById('projekt_action').value = 'create';
     document.getElementById('projekt_id').value = '';
     document.getElementById('projektModalTitle').textContent = 'Neues Projekt';
+    document.querySelectorAll('.tag-check').forEach(cb => cb.checked = false);
     this.querySelector('form').reset();
 });
 </script>

@@ -4,46 +4,83 @@
  */
 
 require_once __DIR__ . '/config/config.php';
-require_once __DIR__ . '/includes/Gefaehrdungsbeurteilung.php';
+require_once __DIR__ . '/config/database.php';
 
 requireLogin();
 
 $db = Database::getInstance();
-$gbClass = new Gefaehrdungsbeurteilung();
+$userId = $_SESSION['user_id'];
+$isAdmin = hasRole(ROLE_ADMIN);
 
-// Statistiken laden
-$stats = [
-    'beurteilungen_gesamt' => $db->fetchOne("SELECT COUNT(*) as cnt FROM gefaehrdungsbeurteilungen")['cnt'],
-    'beurteilungen_aktiv' => $db->fetchOne("SELECT COUNT(*) as cnt FROM gefaehrdungsbeurteilungen WHERE status = 'aktiv'")['cnt'],
-    'beurteilungen_entwurf' => $db->fetchOne("SELECT COUNT(*) as cnt FROM gefaehrdungsbeurteilungen WHERE status = 'entwurf'")['cnt'],
-    'gefaehrdungen_gesamt' => $db->fetchOne("SELECT COUNT(*) as cnt FROM vorgaenge")['cnt'],
-    'hohe_risiken' => $db->fetchOne("SELECT COUNT(*) as cnt FROM vorgaenge WHERE risikobewertung >= 9")['cnt'],
-    'unternehmen' => $db->fetchOne("SELECT COUNT(*) as cnt FROM unternehmen")['cnt']
-];
+// Benutzer-Projekte laden
+if ($isAdmin) {
+    $meineProjekte = $db->fetchAll("
+        SELECT p.*,
+               (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id) as gef_count,
+               (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id AND status = 'offen') as offen_count
+        FROM projekte p
+        WHERE p.status = 'aktiv'
+        ORDER BY p.zeitraum_von ASC
+        LIMIT 5
+    ");
+    $projektCount = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekte")['cnt'];
+} else {
+    $meineProjekte = $db->fetchAll("
+        SELECT p.*,
+               bp.berechtigung,
+               (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id) as gef_count,
+               (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id AND status = 'offen') as offen_count
+        FROM projekte p
+        JOIN benutzer_projekte bp ON p.id = bp.projekt_id
+        WHERE bp.benutzer_id = ? AND p.status IN ('aktiv', 'geplant')
+        ORDER BY p.status = 'aktiv' DESC, p.zeitraum_von ASC
+        LIMIT 5
+    ", [$userId]);
+    $projektCount = $db->fetchOne("
+        SELECT COUNT(*) as cnt FROM projekte p
+        JOIN benutzer_projekte bp ON p.id = bp.projekt_id
+        WHERE bp.benutzer_id = ?
+    ", [$userId])['cnt'];
+}
 
-// Letzte Beurteilungen
-$letzteBeurteilungen = $db->fetchAll("
-    SELECT gb.*, u.name as unternehmen_name
-    FROM gefaehrdungsbeurteilungen gb
-    LEFT JOIN unternehmen u ON gb.unternehmen_id = u.id
-    ORDER BY gb.aktualisiert_am DESC
-    LIMIT 5
-");
+// Statistiken
+$stats = [];
 
-// Risiko-Verteilung
-$risikoVerteilung = $db->fetchAll("
-    SELECT
-        CASE
-            WHEN risikobewertung <= 2 THEN 'Gering'
-            WHEN risikobewertung <= 4 THEN 'Mittel'
-            WHEN risikobewertung <= 8 THEN 'Hoch'
-            ELSE 'Sehr hoch'
-        END as risiko_level,
-        COUNT(*) as anzahl
-    FROM vorgaenge
-    GROUP BY risiko_level
-    ORDER BY FIELD(risiko_level, 'Sehr hoch', 'Hoch', 'Mittel', 'Gering')
-");
+if ($isAdmin) {
+    // Admin sieht globale Statistiken
+    $stats['projekte_aktiv'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekte WHERE status = 'aktiv'")['cnt'];
+    $stats['gefaehrdungen_gesamt'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen")['cnt'];
+    $stats['hohe_risiken'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen WHERE risikobewertung >= 9")['cnt'];
+    $stats['massnahmen_offen'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen WHERE status = 'offen'")['cnt'];
+} else {
+    // Benutzer sieht nur seine Projekte
+    $stats['projekte_aktiv'] = $db->fetchOne("
+        SELECT COUNT(*) as cnt FROM projekte p
+        JOIN benutzer_projekte bp ON p.id = bp.projekt_id
+        WHERE bp.benutzer_id = ? AND p.status = 'aktiv'
+    ", [$userId])['cnt'];
+
+    $stats['gefaehrdungen_gesamt'] = $db->fetchOne("
+        SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen pg
+        JOIN projekte p ON pg.projekt_id = p.id
+        JOIN benutzer_projekte bp ON p.id = bp.projekt_id
+        WHERE bp.benutzer_id = ?
+    ", [$userId])['cnt'];
+
+    $stats['hohe_risiken'] = $db->fetchOne("
+        SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen pg
+        JOIN projekte p ON pg.projekt_id = p.id
+        JOIN benutzer_projekte bp ON p.id = bp.projekt_id
+        WHERE bp.benutzer_id = ? AND pg.risikobewertung >= 9
+    ", [$userId])['cnt'];
+
+    $stats['massnahmen_offen'] = $db->fetchOne("
+        SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen pg
+        JOIN projekte p ON pg.projekt_id = p.id
+        JOIN benutzer_projekte bp ON p.id = bp.projekt_id
+        WHERE bp.benutzer_id = ? AND pg.status = 'offen'
+    ", [$userId])['cnt'];
+}
 
 $pageTitle = 'Dashboard';
 require_once __DIR__ . '/templates/header.php';
@@ -57,9 +94,9 @@ require_once __DIR__ . '/templates/header.php';
             </h1>
             <p class="text-muted mb-0">Willkommen, <?= sanitize(getCurrentUser()['voller_name']) ?>!</p>
         </div>
-        <?php if (hasRole(ROLE_EDITOR)): ?>
-        <a href="<?= BASE_URL ?>/beurteilung_neu.php" class="btn btn-primary">
-            <i class="bi bi-plus-lg me-2"></i>Neue Beurteilung
+        <?php if (hasRole(ROLE_ADMIN)): ?>
+        <a href="<?= BASE_URL ?>/admin/projekte.php" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-2"></i>Neues Projekt
         </a>
         <?php endif; ?>
     </div>
@@ -70,10 +107,10 @@ require_once __DIR__ . '/templates/header.php';
             <div class="card dashboard-card bg-primary text-white h-100">
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
-                        <h2 class="mb-0"><?= $stats['beurteilungen_gesamt'] ?></h2>
-                        <p class="mb-0">Beurteilungen gesamt</p>
+                        <h2 class="mb-0"><?= $projektCount ?></h2>
+                        <p class="mb-0">Meine Projekte</p>
                     </div>
-                    <i class="bi bi-file-earmark-text card-icon"></i>
+                    <i class="bi bi-folder card-icon"></i>
                 </div>
             </div>
         </div>
@@ -81,8 +118,8 @@ require_once __DIR__ . '/templates/header.php';
             <div class="card dashboard-card bg-success text-white h-100">
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
-                        <h2 class="mb-0"><?= $stats['beurteilungen_aktiv'] ?></h2>
-                        <p class="mb-0">Aktive Beurteilungen</p>
+                        <h2 class="mb-0"><?= $stats['projekte_aktiv'] ?></h2>
+                        <p class="mb-0">Aktive Projekte</p>
                     </div>
                     <i class="bi bi-check-circle card-icon"></i>
                 </div>
@@ -92,8 +129,8 @@ require_once __DIR__ . '/templates/header.php';
             <div class="card dashboard-card bg-warning text-dark h-100">
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
-                        <h2 class="mb-0"><?= $stats['gefaehrdungen_gesamt'] ?></h2>
-                        <p class="mb-0">Erfasste Gefährdungen</p>
+                        <h2 class="mb-0"><?= $stats['massnahmen_offen'] ?></h2>
+                        <p class="mb-0">Offene Maßnahmen</p>
                     </div>
                     <i class="bi bi-exclamation-triangle card-icon"></i>
                 </div>
@@ -113,22 +150,24 @@ require_once __DIR__ . '/templates/header.php';
     </div>
 
     <div class="row">
-        <!-- Letzte Beurteilungen -->
+        <!-- Meine Projekte -->
         <div class="col-lg-8 mb-4">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Letzte Beurteilungen</h5>
-                    <a href="<?= BASE_URL ?>/beurteilungen.php" class="btn btn-sm btn-outline-primary">Alle anzeigen</a>
+                    <h5 class="mb-0"><i class="bi bi-folder me-2"></i>Meine Projekte</h5>
+                    <a href="<?= BASE_URL ?>/projekte.php" class="btn btn-sm btn-outline-primary">Alle anzeigen</a>
                 </div>
                 <div class="card-body p-0">
-                    <?php if (empty($letzteBeurteilungen)): ?>
+                    <?php if (empty($meineProjekte)): ?>
                     <div class="p-4 text-center text-muted">
-                        <i class="bi bi-file-earmark-text display-6 mb-2"></i>
-                        <p>Noch keine Beurteilungen vorhanden.</p>
-                        <?php if (hasRole(ROLE_EDITOR)): ?>
-                        <a href="<?= BASE_URL ?>/beurteilung_neu.php" class="btn btn-primary">
-                            Erste Beurteilung erstellen
+                        <i class="bi bi-folder-x display-6 mb-2"></i>
+                        <p>Noch keine Projekte zugewiesen.</p>
+                        <?php if ($isAdmin): ?>
+                        <a href="<?= BASE_URL ?>/admin/projekte.php" class="btn btn-primary">
+                            Erstes Projekt erstellen
                         </a>
+                        <?php else: ?>
+                        <p class="small">Bitte wenden Sie sich an einen Administrator.</p>
                         <?php endif; ?>
                     </div>
                     <?php else: ?>
@@ -136,32 +175,50 @@ require_once __DIR__ . '/templates/header.php';
                         <table class="table table-hover mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Titel</th>
-                                    <th>Unternehmen</th>
+                                    <th>Projekt</th>
+                                    <th>Zeitraum</th>
                                     <th>Status</th>
-                                    <th>Aktualisiert</th>
+                                    <th>Gefährdungen</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($letzteBeurteilungen as $gb): ?>
+                                <?php foreach ($meineProjekte as $p): ?>
                                 <tr>
                                     <td>
-                                        <a href="<?= BASE_URL ?>/beurteilung.php?id=<?= $gb['id'] ?>" class="text-decoration-none">
-                                            <?= sanitize($gb['titel']) ?>
+                                        <a href="<?= BASE_URL ?>/projekt.php?id=<?= $p['id'] ?>" class="text-decoration-none">
+                                            <strong><?= sanitize($p['name']) ?></strong>
                                         </a>
+                                        <br>
+                                        <small class="text-muted">
+                                            <i class="bi bi-geo-alt"></i> <?= sanitize($p['location']) ?>
+                                        </small>
                                     </td>
-                                    <td><?= sanitize($gb['unternehmen_name']) ?></td>
                                     <td>
-                                        <span class="status-badge status-<?= $gb['status'] ?>">
-                                            <?= ucfirst($gb['status']) ?>
+                                        <small>
+                                            <?= date('d.m.Y', strtotime($p['zeitraum_von'])) ?><br>
+                                            bis <?= date('d.m.Y', strtotime($p['zeitraum_bis'])) ?>
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-<?= $p['status'] === 'aktiv' ? 'success' : ($p['status'] === 'geplant' ? 'warning text-dark' : 'secondary') ?>">
+                                            <?= ucfirst($p['status']) ?>
+                                        </span>
+                                        <br>
+                                        <span class="badge bg-<?= $p['indoor_outdoor'] === 'indoor' ? 'info' : ($p['indoor_outdoor'] === 'outdoor' ? 'success' : 'primary') ?>">
+                                            <?= ucfirst($p['indoor_outdoor']) ?>
                                         </span>
                                     </td>
-                                    <td><?= date('d.m.Y H:i', strtotime($gb['aktualisiert_am'])) ?></td>
                                     <td>
-                                        <a href="<?= BASE_URL ?>/beurteilung.php?id=<?= $gb['id'] ?>"
+                                        <span class="badge bg-primary"><?= $p['gef_count'] ?> gesamt</span>
+                                        <?php if ($p['offen_count'] > 0): ?>
+                                        <br><span class="badge bg-warning text-dark"><?= $p['offen_count'] ?> offen</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <a href="<?= BASE_URL ?>/projekt.php?id=<?= $p['id'] ?>"
                                            class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-eye"></i>
+                                            <i class="bi bi-arrow-right"></i>
                                         </a>
                                     </td>
                                 </tr>
@@ -174,102 +231,72 @@ require_once __DIR__ . '/templates/header.php';
             </div>
         </div>
 
-        <!-- Risiko-Übersicht -->
+        <!-- Schnellzugriff -->
         <div class="col-lg-4 mb-4">
             <div class="card h-100">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Risiko-Verteilung</h5>
-                </div>
-                <div class="card-body">
-                    <?php if (empty($risikoVerteilung)): ?>
-                    <p class="text-muted text-center">Keine Daten vorhanden</p>
-                    <?php else: ?>
-                    <?php
-                    $risikoFarben = [
-                        'Gering' => '#92D050',
-                        'Mittel' => '#FFFF00',
-                        'Hoch' => '#FFC000',
-                        'Sehr hoch' => '#FF0000'
-                    ];
-                    $gesamt = array_sum(array_column($risikoVerteilung, 'anzahl'));
-                    ?>
-                    <?php foreach ($risikoVerteilung as $rv): ?>
-                    <?php $prozent = $gesamt > 0 ? round(($rv['anzahl'] / $gesamt) * 100) : 0; ?>
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span><?= $rv['risiko_level'] ?></span>
-                            <span><?= $rv['anzahl'] ?> (<?= $prozent ?>%)</span>
-                        </div>
-                        <div class="progress" style="height: 20px;">
-                            <div class="progress-bar"
-                                 role="progressbar"
-                                 style="width: <?= $prozent ?>%; background-color: <?= $risikoFarben[$rv['risiko_level']] ?>; color: <?= $rv['risiko_level'] === 'Sehr hoch' ? 'white' : '#333' ?>"
-                                 aria-valuenow="<?= $prozent ?>"
-                                 aria-valuemin="0"
-                                 aria-valuemax="100">
-                                <?= $prozent ?>%
-                            </div>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                    <?php endif; ?>
-
-                    <!-- Legende -->
-                    <div class="mt-4 pt-3 border-top">
-                        <h6>Risikobewertung</h6>
-                        <small class="text-muted">
-                            <strong>R = S² × W</strong><br>
-                            S = Schadenschwere (1-3)<br>
-                            W = Wahrscheinlichkeit (1-3)
-                        </small>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Schnellzugriff -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-lightning me-2"></i>Schnellzugriff</h5>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3 col-6 mb-3">
-                            <a href="<?= BASE_URL ?>/beurteilungen.php" class="btn btn-outline-primary w-100 py-3">
-                                <i class="bi bi-file-earmark-text d-block mb-2" style="font-size: 1.5rem;"></i>
-                                Beurteilungen
-                            </a>
-                        </div>
+                    <div class="d-grid gap-2">
+                        <a href="<?= BASE_URL ?>/projekte.php" class="btn btn-outline-primary py-3">
+                            <i class="bi bi-folder me-2"></i>Meine Projekte
+                        </a>
+
                         <?php if (hasRole(ROLE_EDITOR)): ?>
-                        <div class="col-md-3 col-6 mb-3">
-                            <a href="<?= BASE_URL ?>/bibliothek/gefaehrdungen.php" class="btn btn-outline-warning w-100 py-3">
-                                <i class="bi bi-exclamation-triangle d-block mb-2" style="font-size: 1.5rem;"></i>
-                                Gefährdungs-Bibliothek
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6 mb-3">
-                            <a href="<?= BASE_URL ?>/bibliothek/massnahmen.php" class="btn btn-outline-success w-100 py-3">
-                                <i class="bi bi-check2-circle d-block mb-2" style="font-size: 1.5rem;"></i>
-                                Maßnahmen-Bibliothek
-                            </a>
-                        </div>
+                        <a href="<?= BASE_URL ?>/bibliothek/gefaehrdungen.php" class="btn btn-outline-warning py-3">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Gefährdungs-Bibliothek
+                        </a>
+                        <a href="<?= BASE_URL ?>/bibliothek/massnahmen.php" class="btn btn-outline-success py-3">
+                            <i class="bi bi-check2-circle me-2"></i>Maßnahmen-Bibliothek
+                        </a>
                         <?php endif; ?>
+
                         <?php if (hasRole(ROLE_ADMIN)): ?>
-                        <div class="col-md-3 col-6 mb-3">
-                            <a href="<?= BASE_URL ?>/admin/benutzer.php" class="btn btn-outline-secondary w-100 py-3">
-                                <i class="bi bi-people d-block mb-2" style="font-size: 1.5rem;"></i>
-                                Benutzerverwaltung
-                            </a>
-                        </div>
+                        <hr>
+                        <a href="<?= BASE_URL ?>/admin/projekte.php" class="btn btn-outline-secondary py-3">
+                            <i class="bi bi-folder-plus me-2"></i>Projekte verwalten
+                        </a>
+                        <a href="<?= BASE_URL ?>/admin/benutzer.php" class="btn btn-outline-secondary py-3">
+                            <i class="bi bi-people me-2"></i>Benutzerverwaltung
+                        </a>
+                        <a href="<?= BASE_URL ?>/admin/kategorien.php" class="btn btn-outline-secondary py-3">
+                            <i class="bi bi-tags me-2"></i>Kategorien verwalten
+                        </a>
                         <?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Risiko-Hinweis (wenn hohe Risiken vorhanden) -->
+    <?php if ($stats['hohe_risiken'] > 0): ?>
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-danger d-flex align-items-center">
+                <i class="bi bi-exclamation-triangle-fill me-3" style="font-size: 1.5rem;"></i>
+                <div>
+                    <strong>Achtung!</strong> Es gibt <?= $stats['hohe_risiken'] ?> Gefährdung(en) mit hohem Risiko (R ≥ 9).
+                    Diese sollten prioritär behandelt werden.
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
+
+<style>
+.card-icon {
+    font-size: 2.5rem;
+    opacity: 0.5;
+}
+.dashboard-card {
+    transition: transform 0.2s;
+}
+.dashboard-card:hover {
+    transform: translateY(-2px);
+}
+</style>
 
 <?php require_once __DIR__ . '/templates/footer.php'; ?>

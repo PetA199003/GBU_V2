@@ -31,8 +31,8 @@ $currentUser = getCurrentUser();
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="<?= BASE_URL ?>/beurteilungen.php">
-                            <i class="bi bi-file-earmark-text me-1"></i>Beurteilungen
+                        <a class="nav-link" href="<?= BASE_URL ?>/projekte.php">
+                            <i class="bi bi-folder me-1"></i>Meine Projekte
                         </a>
                     </li>
                     <?php if (hasRole(ROLE_EDITOR)): ?>
@@ -60,10 +60,14 @@ $currentUser = getCurrentUser();
                                 <i class="bi bi-people me-2"></i>Benutzer
                             </a></li>
                             <li><a class="dropdown-item" href="<?= BASE_URL ?>/admin/projekte.php">
-                                <i class="bi bi-folder me-2"></i>Projekte
+                                <i class="bi bi-folder-plus me-2"></i>Projekte
                             </a></li>
+                            <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="<?= BASE_URL ?>/admin/kategorien.php">
                                 <i class="bi bi-tags me-2"></i>Kategorien
+                            </a></li>
+                            <li><a class="dropdown-item" href="<?= BASE_URL ?>/admin/tags.php">
+                                <i class="bi bi-bookmark me-2"></i>Tags
                             </a></li>
                         </ul>
                     </li>
