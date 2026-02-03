@@ -490,31 +490,19 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                                         <span class="text-muted">-</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td>
-                                        <div class="dropdown">
-                                            <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
-                                                <i class="bi bi-three-dots-vertical"></i>
+                                    <td class="text-nowrap">
+                                        <a href="#" class="btn btn-sm btn-link text-primary p-0 me-1" onclick="editGefaehrdung(<?= htmlspecialchars(json_encode($gef)) ?>)" title="<?= $canEdit ? 'Bearbeiten' : 'Details' ?>">
+                                            <i class="bi bi-<?= $canEdit ? 'pencil' : 'eye' ?>"></i>
+                                        </a>
+                                        <?php if ($canEdit): ?>
+                                        <form method="POST" class="d-inline" onsubmit="return confirm('Gefährdung wirklich entfernen?')">
+                                            <input type="hidden" name="action" value="delete">
+                                            <input type="hidden" name="gefaehrdung_id" value="<?= $gef['id'] ?>">
+                                            <button type="submit" class="btn btn-sm btn-link text-danger p-0" title="Entfernen">
+                                                <i class="bi bi-trash"></i>
                                             </button>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                <li>
-                                                    <a class="dropdown-item" href="#" onclick="editGefaehrdung(<?= htmlspecialchars(json_encode($gef)) ?>)">
-                                                        <i class="bi bi-<?= $canEdit ? 'pencil' : 'eye' ?> me-2"></i><?= $canEdit ? 'Bearbeiten' : 'Details' ?>
-                                                    </a>
-                                                </li>
-                                                <?php if ($canEdit): ?>
-                                                <li><hr class="dropdown-divider"></li>
-                                                <li>
-                                                    <form method="POST" onsubmit="return confirm('Gefährdung wirklich entfernen?')">
-                                                        <input type="hidden" name="action" value="delete">
-                                                        <input type="hidden" name="gefaehrdung_id" value="<?= $gef['id'] ?>">
-                                                        <button type="submit" class="dropdown-item text-danger">
-                                                            <i class="bi bi-trash me-2"></i>Entfernen
-                                                        </button>
-                                                    </form>
-                                                </li>
-                                                <?php endif; ?>
-                                            </ul>
-                                        </div>
+                                        </form>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
