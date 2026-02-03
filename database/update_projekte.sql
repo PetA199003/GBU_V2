@@ -42,12 +42,26 @@ CREATE TABLE `benutzer_projekte` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Gefährdungsbeurteilungen: projekt_id Spalte hinzufügen (falls nicht vorhanden)
-ALTER TABLE `gefaehrdungsbeurteilungen`
-ADD COLUMN IF NOT EXISTS `projekt_id` INT UNSIGNED DEFAULT NULL AFTER `id`;
+-- Prüfung ob Spalte existiert und hinzufügen falls nicht
+SET @dbname = DATABASE();
+SET @tablename = 'gefaehrdungsbeurteilungen';
+SET @columnname = 'projekt_id';
+SET @preparedStatement = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = @dbname
+    AND TABLE_NAME = @tablename
+    AND COLUMN_NAME = @columnname
+  ) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' INT UNSIGNED DEFAULT NULL AFTER id')
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
 
--- Index hinzufügen
-ALTER TABLE `gefaehrdungsbeurteilungen`
-ADD INDEX IF NOT EXISTS `idx_projekt` (`projekt_id`);
+-- Index hinzufügen (ignoriert Fehler falls bereits vorhanden)
+ALTER TABLE `gefaehrdungsbeurteilungen` ADD INDEX `idx_projekt` (`projekt_id`);
 
 -- Fertig!
 SELECT 'Datenbank-Update erfolgreich!' as Status;
