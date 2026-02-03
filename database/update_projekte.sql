@@ -3,8 +3,17 @@
 
 USE gefaehrdungsbeurteilung;
 
--- Neue Projekte-Tabelle erstellen
+-- Foreign Key Checks deaktivieren
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- Alte Tabellen löschen falls vorhanden
+DROP TABLE IF EXISTS `benutzer_projekte`;
 DROP TABLE IF EXISTS `projekte`;
+
+-- Foreign Key Checks wieder aktivieren
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- Neue Projekte-Tabelle erstellen
 
 CREATE TABLE `projekte` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -26,8 +35,6 @@ CREATE TABLE `projekte` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Benutzer-Projekt-Zuweisung
-DROP TABLE IF EXISTS `benutzer_projekte`;
-
 CREATE TABLE `benutzer_projekte` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `benutzer_id` INT UNSIGNED NOT NULL,
