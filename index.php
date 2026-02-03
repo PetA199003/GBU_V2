@@ -17,7 +17,7 @@ if ($isAdmin) {
     $meineProjekte = $db->fetchAll("
         SELECT p.*,
                (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id) as gef_count,
-               (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id AND status = 'offen') as offen_count
+               (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id AND (massnahmen IS NULL OR massnahmen = '')) as ohne_massnahmen
         FROM projekte p
         WHERE p.status = 'aktiv'
         ORDER BY p.zeitraum_von ASC
@@ -29,7 +29,7 @@ if ($isAdmin) {
         SELECT p.*,
                bp.berechtigung,
                (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id) as gef_count,
-               (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id AND status = 'offen') as offen_count
+               (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id AND (massnahmen IS NULL OR massnahmen = '')) as ohne_massnahmen
         FROM projekte p
         JOIN benutzer_projekte bp ON p.id = bp.projekt_id
         WHERE bp.benutzer_id = ? AND p.status IN ('aktiv', 'geplant')
@@ -51,7 +51,7 @@ if ($isAdmin) {
     $stats['projekte_aktiv'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekte WHERE status = 'aktiv'")['cnt'];
     $stats['gefaehrdungen_gesamt'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen")['cnt'];
     $stats['hohe_risiken'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen WHERE risikobewertung >= 9")['cnt'];
-    $stats['massnahmen_offen'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen WHERE status = 'offen'")['cnt'];
+    $stats['ohne_massnahmen'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen WHERE massnahmen IS NULL OR massnahmen = ''")['cnt'];
 } else {
     // Benutzer sieht nur seine Projekte
     $stats['projekte_aktiv'] = $db->fetchOne("
@@ -74,11 +74,11 @@ if ($isAdmin) {
         WHERE bp.benutzer_id = ? AND pg.risikobewertung >= 9
     ", [$userId])['cnt'];
 
-    $stats['massnahmen_offen'] = $db->fetchOne("
+    $stats['ohne_massnahmen'] = $db->fetchOne("
         SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen pg
         JOIN projekte p ON pg.projekt_id = p.id
         JOIN benutzer_projekte bp ON p.id = bp.projekt_id
-        WHERE bp.benutzer_id = ? AND pg.status = 'offen'
+        WHERE bp.benutzer_id = ? AND (pg.massnahmen IS NULL OR pg.massnahmen = '')
     ", [$userId])['cnt'];
 }
 
@@ -129,8 +129,8 @@ require_once __DIR__ . '/templates/header.php';
             <div class="card dashboard-card bg-warning text-dark h-100">
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
-                        <h2 class="mb-0"><?= $stats['massnahmen_offen'] ?></h2>
-                        <p class="mb-0">Offene Maßnahmen</p>
+                        <h2 class="mb-0"><?= $stats['ohne_massnahmen'] ?></h2>
+                        <p class="mb-0">Ohne Maßnahmen</p>
                     </div>
                     <i class="bi bi-exclamation-triangle card-icon"></i>
                 </div>
@@ -211,8 +211,8 @@ require_once __DIR__ . '/templates/header.php';
                                     </td>
                                     <td>
                                         <span class="badge bg-primary"><?= $p['gef_count'] ?> gesamt</span>
-                                        <?php if ($p['offen_count'] > 0): ?>
-                                        <br><span class="badge bg-warning text-dark"><?= $p['offen_count'] ?> offen</span>
+                                        <?php if ($p['ohne_massnahmen'] > 0): ?>
+                                        <br><span class="badge bg-warning text-dark"><?= $p['ohne_massnahmen'] ?> ohne Maßn.</span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
