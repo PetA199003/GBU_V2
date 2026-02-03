@@ -59,8 +59,8 @@ $currentUser = getCurrentUser();
                             <li><a class="dropdown-item" href="<?= BASE_URL ?>/admin/benutzer.php">
                                 <i class="bi bi-people me-2"></i>Benutzer
                             </a></li>
-                            <li><a class="dropdown-item" href="<?= BASE_URL ?>/admin/unternehmen.php">
-                                <i class="bi bi-building me-2"></i>Unternehmen
+                            <li><a class="dropdown-item" href="<?= BASE_URL ?>/admin/projekte.php">
+                                <i class="bi bi-folder me-2"></i>Projekte
                             </a></li>
                             <li><a class="dropdown-item" href="<?= BASE_URL ?>/admin/kategorien.php">
                                 <i class="bi bi-tags me-2"></i>Kategorien

@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/Auth.php';
 
 requireRole(ROLE_ADMIN);
@@ -17,6 +18,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $userId = $_POST['user_id'] ?? null;
 
     switch ($action) {
+        case 'create':
+            $result = $auth->register([
+                'benutzername' => $_POST['benutzername'] ?? '',
+                'email' => $_POST['email'] ?? '',
+                'passwort' => $_POST['passwort'] ?? '',
+                'passwort_confirm' => $_POST['passwort'] ?? '',
+                'vorname' => $_POST['vorname'] ?? '',
+                'nachname' => $_POST['nachname'] ?? ''
+            ]);
+
+            if ($result['success']) {
+                // Rolle setzen
+                $auth->updateUser($result['user_id'], ['rolle' => (int)$_POST['rolle']]);
+                setFlashMessage('success', 'Benutzer wurde erstellt.');
+            } else {
+                setFlashMessage('error', implode(' ', $result['errors']));
+            }
+            break;
+
         case 'update_role':
             $newRole = (int)$_POST['rolle'];
             if ($userId && in_array($newRole, [ROLE_VIEWER, ROLE_EDITOR, ROLE_ADMIN])) {
@@ -60,13 +80,10 @@ require_once __DIR__ . '/../templates/header.php';
             <h1 class="h3 mb-0">
                 <i class="bi bi-people me-2"></i>Benutzerverwaltung
             </h1>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-0">
-                    <li class="breadcrumb-item"><a href="<?= BASE_URL ?>/index.php">Dashboard</a></li>
-                    <li class="breadcrumb-item active">Benutzerverwaltung</li>
-                </ol>
-            </nav>
         </div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#benutzerModal">
+            <i class="bi bi-plus-lg me-2"></i>Neuer Benutzer
+        </button>
     </div>
 
     <div class="card">
@@ -156,33 +173,56 @@ require_once __DIR__ . '/../templates/header.php';
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Rollen-Erklärung -->
-    <div class="card mt-4">
-        <div class="card-header">
-            <h5 class="card-title mb-0"><i class="bi bi-info-circle me-2"></i>Rollenübersicht</h5>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="d-flex align-items-start">
-                        <span class="badge bg-secondary me-2">Betrachter</span>
-                        <small>Kann Gefährdungsbeurteilungen ansehen, aber nicht bearbeiten.</small>
+<!-- Modal: Neuer Benutzer -->
+<div class="modal fade" id="benutzerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="action" value="create">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Neuer Benutzer</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Vorname *</label>
+                            <input type="text" class="form-control" name="vorname" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nachname *</label>
+                            <input type="text" class="form-control" name="nachname" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Benutzername *</label>
+                        <input type="text" class="form-control" name="benutzername" required minlength="3">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">E-Mail *</label>
+                        <input type="email" class="form-control" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Passwort *</label>
+                        <input type="password" class="form-control" name="passwort" required minlength="6">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rolle *</label>
+                        <select class="form-select" name="rolle" required>
+                            <option value="<?= ROLE_VIEWER ?>">Betrachter</option>
+                            <option value="<?= ROLE_EDITOR ?>">Bearbeiter</option>
+                            <option value="<?= ROLE_ADMIN ?>">Administrator</option>
+                        </select>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="d-flex align-items-start">
-                        <span class="badge bg-primary me-2">Bearbeiter</span>
-                        <small>Kann Gefährdungsbeurteilungen erstellen und bearbeiten.</small>
-                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Benutzer erstellen</button>
                 </div>
-                <div class="col-md-4">
-                    <div class="d-flex align-items-start">
-                        <span class="badge bg-danger me-2">Administrator</span>
-                        <small>Voller Zugriff inkl. Benutzerverwaltung und Systemeinstellungen.</small>
-                    </div>
-                </div>
-            </div>
+            </form>
         </div>
     </div>
 </div>
