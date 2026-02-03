@@ -95,7 +95,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $db->query("UPDATE arbeits_kategorien SET nummer = nummer + 1 WHERE id = ?", [$kategorieId]);
                 }
             }
-            break;
+            // Redirect mit open-Parameter damit Accordion offen bleibt
+            redirect('admin/kategorien.php?open=' . $kategorieId);
+            exit;
 
         case 'reorder_unterkategorie':
             // Reihenfolge der Unterkategorie ändern
@@ -113,6 +115,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $db->query("UPDATE arbeits_unterkategorien SET nummer = nummer - 1 WHERE nummer = ? AND kategorie_id = ?", [$uk['nummer'] + 1, $uk['kategorie_id']]);
                     $db->query("UPDATE arbeits_unterkategorien SET nummer = nummer + 1 WHERE id = ?", [$ukId]);
                 }
+                // Redirect mit open-Parameter damit Accordion offen bleibt
+                redirect('admin/kategorien.php?open=' . $uk['kategorie_id']);
+                exit;
             }
             break;
     }
@@ -432,6 +437,18 @@ document.getElementById('kategorieModal').addEventListener('hidden.bs.modal', fu
     document.getElementById('kat_id').value = '';
     document.getElementById('katModalTitle').textContent = 'Neue Kategorie';
     this.querySelector('form').reset();
+});
+
+// Auto-open accordion from URL parameter (nach Verschieben offen halten)
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const openKatId = urlParams.get('open');
+    if (openKatId) {
+        const accordionEl = document.getElementById('kat_' + openKatId);
+        if (accordionEl) {
+            new bootstrap.Collapse(accordionEl, { show: true });
+        }
+    }
 });
 </script>
 

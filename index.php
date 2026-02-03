@@ -12,18 +12,18 @@ $db = Database::getInstance();
 $userId = $_SESSION['user_id'];
 $isAdmin = hasRole(ROLE_ADMIN);
 
-// Benutzer-Projekte laden
+// Benutzer-Projekte laden (ohne archivierte)
 if ($isAdmin) {
     $meineProjekte = $db->fetchAll("
         SELECT p.*,
                (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id) as gef_count,
                (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id AND (massnahmen IS NULL OR massnahmen = '')) as ohne_massnahmen
         FROM projekte p
-        WHERE p.status = 'aktiv'
-        ORDER BY p.zeitraum_von ASC
+        WHERE p.status != 'archiviert'
+        ORDER BY p.status = 'aktiv' DESC, p.zeitraum_von ASC
         LIMIT 5
     ");
-    $projektCount = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekte")['cnt'];
+    $projektCount = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekte WHERE status != 'archiviert'")['cnt'];
 } else {
     $meineProjekte = $db->fetchAll("
         SELECT p.*,
@@ -32,14 +32,14 @@ if ($isAdmin) {
                (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id AND (massnahmen IS NULL OR massnahmen = '')) as ohne_massnahmen
         FROM projekte p
         JOIN benutzer_projekte bp ON p.id = bp.projekt_id
-        WHERE bp.benutzer_id = ? AND p.status IN ('aktiv', 'geplant')
+        WHERE bp.benutzer_id = ? AND p.status != 'archiviert'
         ORDER BY p.status = 'aktiv' DESC, p.zeitraum_von ASC
         LIMIT 5
     ", [$userId]);
     $projektCount = $db->fetchOne("
         SELECT COUNT(*) as cnt FROM projekte p
         JOIN benutzer_projekte bp ON p.id = bp.projekt_id
-        WHERE bp.benutzer_id = ?
+        WHERE bp.benutzer_id = ? AND p.status != 'archiviert'
     ", [$userId])['cnt'];
 }
 
@@ -169,11 +169,8 @@ require_once __DIR__ . '/templates/header.php';
                         </a>
 
                         <?php if (hasRole(ROLE_EDITOR)): ?>
-                        <a href="<?= BASE_URL ?>/bibliothek/gefaehrdungen.php" class="btn btn-outline-warning py-3">
-                            <i class="bi bi-exclamation-triangle me-2"></i>Gefährdungs-Bibliothek
-                        </a>
-                        <a href="<?= BASE_URL ?>/bibliothek/massnahmen.php" class="btn btn-outline-success py-3">
-                            <i class="bi bi-check2-circle me-2"></i>Maßnahmen-Bibliothek
+                        <a href="<?= BASE_URL ?>/bibliothek/gefaehrdungen.php" class="btn btn-outline-success py-3">
+                            <i class="bi bi-book me-2"></i>Bibliothek
                         </a>
                         <?php endif; ?>
 
