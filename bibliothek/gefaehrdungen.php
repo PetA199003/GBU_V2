@@ -376,30 +376,19 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
                                             <?= $gef['verwendung_count'] ?>
                                         </span>
                                     </td>
-                                    <td>
-                                        <div class="dropdown">
-                                            <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
-                                                <i class="bi bi-three-dots-vertical"></i>
+                                    <td class="text-nowrap">
+                                        <a href="#" class="btn btn-sm btn-link text-primary p-0 me-1"
+                                           onclick="editGefaehrdung(<?= htmlspecialchars(json_encode($gef)) ?>, <?= htmlspecialchars(json_encode($gefTagsMap[$gef['id']] ?? [])) ?>)"
+                                           title="Bearbeiten">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <form method="POST" class="d-inline" onsubmit="return confirm('Gefährdung wirklich löschen?')">
+                                            <input type="hidden" name="action" value="delete">
+                                            <input type="hidden" name="id" value="<?= $gef['id'] ?>">
+                                            <button type="submit" class="btn btn-sm btn-link text-danger p-0" title="Löschen">
+                                                <i class="bi bi-trash"></i>
                                             </button>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                <li>
-                                                    <a class="dropdown-item" href="#"
-                                                       onclick="editGefaehrdung(<?= htmlspecialchars(json_encode($gef)) ?>, <?= htmlspecialchars(json_encode($gefTagsMap[$gef['id']] ?? [])) ?>)">
-                                                        <i class="bi bi-pencil me-2"></i>Bearbeiten
-                                                    </a>
-                                                </li>
-                                                <li><hr class="dropdown-divider"></li>
-                                                <li>
-                                                    <form method="POST" onsubmit="return confirm('Gefährdung wirklich löschen?')">
-                                                        <input type="hidden" name="action" value="delete">
-                                                        <input type="hidden" name="id" value="<?= $gef['id'] ?>">
-                                                        <button type="submit" class="dropdown-item text-danger">
-                                                            <i class="bi bi-trash me-2"></i>Löschen
-                                                        </button>
-                                                    </form>
-                                                </li>
-                                            </ul>
-                                        </div>
+                                        </form>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>

@@ -50,7 +50,7 @@ if ($isAdmin) {
     // Admin sieht globale Statistiken
     $stats['projekte_aktiv'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekte WHERE status = 'aktiv'")['cnt'];
     $stats['gefaehrdungen_gesamt'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen")['cnt'];
-    $stats['hohe_risiken'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen WHERE risikobewertung >= 9")['cnt'];
+    $stats['hohe_risiken_nach'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen WHERE (risikobewertung_nach IS NOT NULL AND risikobewertung_nach >= 9) OR (risikobewertung_nach IS NULL AND risikobewertung >= 9)")['cnt'];
     $stats['ohne_massnahmen'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen WHERE massnahmen IS NULL OR massnahmen = ''")['cnt'];
 } else {
     // Benutzer sieht nur seine Projekte
@@ -67,11 +67,11 @@ if ($isAdmin) {
         WHERE bp.benutzer_id = ?
     ", [$userId])['cnt'];
 
-    $stats['hohe_risiken'] = $db->fetchOne("
+    $stats['hohe_risiken_nach'] = $db->fetchOne("
         SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen pg
         JOIN projekte p ON pg.projekt_id = p.id
         JOIN benutzer_projekte bp ON p.id = bp.projekt_id
-        WHERE bp.benutzer_id = ? AND pg.risikobewertung >= 9
+        WHERE bp.benutzer_id = ? AND ((pg.risikobewertung_nach IS NOT NULL AND pg.risikobewertung_nach >= 9) OR (pg.risikobewertung_nach IS NULL AND pg.risikobewertung >= 9))
     ", [$userId])['cnt'];
 
     $stats['ohne_massnahmen'] = $db->fetchOne("
@@ -270,15 +270,15 @@ require_once __DIR__ . '/templates/header.php';
         </div>
     </div>
 
-    <!-- Risiko-Hinweis (wenn hohe Risiken vorhanden) -->
-    <?php if ($stats['hohe_risiken'] > 0): ?>
+    <!-- Risiko-Hinweis (nur wenn nach Maßnahmen noch hohe Risiken vorhanden) -->
+    <?php if ($stats['hohe_risiken_nach'] > 0): ?>
     <div class="row">
         <div class="col-12">
             <div class="alert alert-danger d-flex align-items-center">
                 <i class="bi bi-exclamation-triangle-fill me-3" style="font-size: 1.5rem;"></i>
                 <div>
-                    <strong>Achtung!</strong> Es gibt <?= $stats['hohe_risiken'] ?> Gefährdung(en) mit hohem Risiko (R ≥ 9).
-                    Diese sollten prioritär behandelt werden.
+                    <strong>Achtung!</strong> Es gibt <?= $stats['hohe_risiken_nach'] ?> Gefährdung(en), bei denen das Risiko auch nach Maßnahmen noch sehr hoch ist (R ≥ 9).
+                    Diese sollten dringend weiter reduziert werden.
                 </div>
             </div>
         </div>
