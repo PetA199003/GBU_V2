@@ -56,11 +56,11 @@ $currentUser = getCurrentUser();
                             <i class="bi bi-gear me-1"></i>Verwaltung
                         </a>
                         <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="<?= BASE_URL ?>/admin/projekte.php">
+                                <i class="bi bi-folder-plus me-2"></i>Projekte verwalten
+                            </a></li>
                             <li><a class="dropdown-item" href="<?= BASE_URL ?>/admin/benutzer.php">
                                 <i class="bi bi-people me-2"></i>Benutzer
-                            </a></li>
-                            <li><a class="dropdown-item" href="<?= BASE_URL ?>/admin/projekte.php">
-                                <i class="bi bi-folder-plus me-2"></i>Projekte
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="<?= BASE_URL ?>/admin/kategorien.php">
@@ -100,7 +100,7 @@ $currentUser = getCurrentUser();
 
     <main class="<?= isLoggedIn() ? 'container-fluid py-4' : '' ?>">
         <?php if ($flash): ?>
-        <div class="container">
+        <div class="container-fluid">
             <div class="alert alert-<?= $flash['type'] === 'error' ? 'danger' : $flash['type'] ?> alert-dismissible fade show">
                 <?= sanitize($flash['message']) ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
