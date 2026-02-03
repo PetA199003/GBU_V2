@@ -43,42 +43,15 @@ if ($isAdmin) {
     ", [$userId])['cnt'];
 }
 
-// Statistiken
-$stats = [];
-
+// Hohe Risiken nach Maßnahmen zählen (für Warnung)
 if ($isAdmin) {
-    // Admin sieht globale Statistiken
-    $stats['projekte_aktiv'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekte WHERE status = 'aktiv'")['cnt'];
-    $stats['gefaehrdungen_gesamt'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen")['cnt'];
-    $stats['hohe_risiken_nach'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen WHERE (risikobewertung_nach IS NOT NULL AND risikobewertung_nach >= 9) OR (risikobewertung_nach IS NULL AND risikobewertung >= 9)")['cnt'];
-    $stats['ohne_massnahmen'] = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen WHERE massnahmen IS NULL OR massnahmen = ''")['cnt'];
+    $hoheRisikenNach = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen WHERE (risikobewertung_nach IS NOT NULL AND risikobewertung_nach >= 9) OR (risikobewertung_nach IS NULL AND risikobewertung >= 9)")['cnt'];
 } else {
-    // Benutzer sieht nur seine Projekte
-    $stats['projekte_aktiv'] = $db->fetchOne("
-        SELECT COUNT(*) as cnt FROM projekte p
-        JOIN benutzer_projekte bp ON p.id = bp.projekt_id
-        WHERE bp.benutzer_id = ? AND p.status = 'aktiv'
-    ", [$userId])['cnt'];
-
-    $stats['gefaehrdungen_gesamt'] = $db->fetchOne("
-        SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen pg
-        JOIN projekte p ON pg.projekt_id = p.id
-        JOIN benutzer_projekte bp ON p.id = bp.projekt_id
-        WHERE bp.benutzer_id = ?
-    ", [$userId])['cnt'];
-
-    $stats['hohe_risiken_nach'] = $db->fetchOne("
+    $hoheRisikenNach = $db->fetchOne("
         SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen pg
         JOIN projekte p ON pg.projekt_id = p.id
         JOIN benutzer_projekte bp ON p.id = bp.projekt_id
         WHERE bp.benutzer_id = ? AND ((pg.risikobewertung_nach IS NOT NULL AND pg.risikobewertung_nach >= 9) OR (pg.risikobewertung_nach IS NULL AND pg.risikobewertung >= 9))
-    ", [$userId])['cnt'];
-
-    $stats['ohne_massnahmen'] = $db->fetchOne("
-        SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen pg
-        JOIN projekte p ON pg.projekt_id = p.id
-        JOIN benutzer_projekte bp ON p.id = bp.projekt_id
-        WHERE bp.benutzer_id = ? AND (pg.massnahmen IS NULL OR pg.massnahmen = '')
     ", [$userId])['cnt'];
 }
 
@@ -99,54 +72,6 @@ require_once __DIR__ . '/templates/header.php';
             <i class="bi bi-plus-lg me-2"></i>Neues Projekt
         </a>
         <?php endif; ?>
-    </div>
-
-    <!-- Statistik-Karten -->
-    <div class="row mb-4">
-        <div class="col-md-6 col-lg-3 mb-3">
-            <div class="card dashboard-card bg-primary text-white h-100">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h2 class="mb-0"><?= $projektCount ?></h2>
-                        <p class="mb-0">Meine Projekte</p>
-                    </div>
-                    <i class="bi bi-folder card-icon"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-3 mb-3">
-            <div class="card dashboard-card bg-success text-white h-100">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h2 class="mb-0"><?= $stats['projekte_aktiv'] ?></h2>
-                        <p class="mb-0">Aktive Projekte</p>
-                    </div>
-                    <i class="bi bi-check-circle card-icon"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-3 mb-3">
-            <div class="card dashboard-card bg-warning text-dark h-100">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h2 class="mb-0"><?= $stats['ohne_massnahmen'] ?></h2>
-                        <p class="mb-0">Ohne Maßnahmen</p>
-                    </div>
-                    <i class="bi bi-exclamation-triangle card-icon"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-3 mb-3">
-            <div class="card dashboard-card bg-danger text-white h-100">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <h2 class="mb-0"><?= $stats['hohe_risiken'] ?></h2>
-                        <p class="mb-0">Hohe Risiken (R≥9)</p>
-                    </div>
-                    <i class="bi bi-shield-exclamation card-icon"></i>
-                </div>
-            </div>
-        </div>
     </div>
 
     <div class="row">
@@ -271,13 +196,13 @@ require_once __DIR__ . '/templates/header.php';
     </div>
 
     <!-- Risiko-Hinweis (nur wenn nach Maßnahmen noch hohe Risiken vorhanden) -->
-    <?php if ($stats['hohe_risiken_nach'] > 0): ?>
+    <?php if ($hoheRisikenNach > 0): ?>
     <div class="row">
         <div class="col-12">
             <div class="alert alert-danger d-flex align-items-center">
                 <i class="bi bi-exclamation-triangle-fill me-3" style="font-size: 1.5rem;"></i>
                 <div>
-                    <strong>Achtung!</strong> Es gibt <?= $stats['hohe_risiken_nach'] ?> Gefährdung(en), bei denen das Risiko auch nach Maßnahmen noch sehr hoch ist (R ≥ 9).
+                    <strong>Achtung!</strong> Es gibt <?= $hoheRisikenNach ?> Gefährdung(en), bei denen das Risiko auch nach Maßnahmen noch sehr hoch ist (R ≥ 9).
                     Diese sollten dringend weiter reduziert werden.
                 </div>
             </div>
@@ -285,18 +210,5 @@ require_once __DIR__ . '/templates/header.php';
     </div>
     <?php endif; ?>
 </div>
-
-<style>
-.card-icon {
-    font-size: 2.5rem;
-    opacity: 0.5;
-}
-.dashboard-card {
-    transition: transform 0.2s;
-}
-.dashboard-card:hover {
-    transform: translateY(-2px);
-}
-</style>
 
 <?php require_once __DIR__ . '/templates/footer.php'; ?>
