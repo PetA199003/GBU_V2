@@ -7,22 +7,88 @@ USE gefaehrdungsbeurteilung;
 -- GEFÄHRDUNG_BIBLIOTHEK ERWEITERN
 -- ============================================
 
--- STOP-Prinzip Felder hinzufügen
-ALTER TABLE `gefaehrdung_bibliothek`
-    ADD COLUMN IF NOT EXISTS `stop_s` TINYINT(1) NOT NULL DEFAULT 0 AFTER `standard_wahrscheinlichkeit`,
-    ADD COLUMN IF NOT EXISTS `stop_t` TINYINT(1) NOT NULL DEFAULT 0 AFTER `stop_s`,
-    ADD COLUMN IF NOT EXISTS `stop_o` TINYINT(1) NOT NULL DEFAULT 0 AFTER `stop_t`,
-    ADD COLUMN IF NOT EXISTS `stop_p` TINYINT(1) NOT NULL DEFAULT 0 AFTER `stop_o`;
+-- Prüfen und Spalten hinzufügen (MySQL-kompatibel ohne IF NOT EXISTS)
 
--- Gefährdungsart und Kategorien hinzufügen
-ALTER TABLE `gefaehrdung_bibliothek`
-    ADD COLUMN IF NOT EXISTS `gefaehrdungsart_id` INT UNSIGNED DEFAULT NULL AFTER `id`,
-    ADD COLUMN IF NOT EXISTS `kategorie_id` INT UNSIGNED DEFAULT NULL AFTER `gefaehrdungsart_id`,
-    ADD COLUMN IF NOT EXISTS `unterkategorie_id` INT UNSIGNED DEFAULT NULL AFTER `kategorie_id`;
+-- STOP-Prinzip Felder
+SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = 'gefaehrdungsbeurteilung'
+    AND TABLE_NAME = 'gefaehrdung_bibliothek'
+    AND COLUMN_NAME = 'stop_s');
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE gefaehrdung_bibliothek ADD COLUMN stop_s TINYINT(1) NOT NULL DEFAULT 0',
+    'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
--- Indizes hinzufügen (nur wenn sie nicht existieren)
--- MySQL 8+ unterstützt IF NOT EXISTS für Indizes nicht direkt, daher mit Fehlerbehandlung
--- Diese werden ggf. einen Fehler werfen wenn sie schon existieren - kann ignoriert werden
+SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = 'gefaehrdungsbeurteilung'
+    AND TABLE_NAME = 'gefaehrdung_bibliothek'
+    AND COLUMN_NAME = 'stop_t');
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE gefaehrdung_bibliothek ADD COLUMN stop_t TINYINT(1) NOT NULL DEFAULT 0',
+    'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = 'gefaehrdungsbeurteilung'
+    AND TABLE_NAME = 'gefaehrdung_bibliothek'
+    AND COLUMN_NAME = 'stop_o');
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE gefaehrdung_bibliothek ADD COLUMN stop_o TINYINT(1) NOT NULL DEFAULT 0',
+    'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = 'gefaehrdungsbeurteilung'
+    AND TABLE_NAME = 'gefaehrdung_bibliothek'
+    AND COLUMN_NAME = 'stop_p');
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE gefaehrdung_bibliothek ADD COLUMN stop_p TINYINT(1) NOT NULL DEFAULT 0',
+    'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Gefährdungsart-ID
+SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = 'gefaehrdungsbeurteilung'
+    AND TABLE_NAME = 'gefaehrdung_bibliothek'
+    AND COLUMN_NAME = 'gefaehrdungsart_id');
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE gefaehrdung_bibliothek ADD COLUMN gefaehrdungsart_id INT UNSIGNED DEFAULT NULL',
+    'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Kategorie-ID
+SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = 'gefaehrdungsbeurteilung'
+    AND TABLE_NAME = 'gefaehrdung_bibliothek'
+    AND COLUMN_NAME = 'kategorie_id');
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE gefaehrdung_bibliothek ADD COLUMN kategorie_id INT UNSIGNED DEFAULT NULL',
+    'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Unterkategorie-ID
+SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = 'gefaehrdungsbeurteilung'
+    AND TABLE_NAME = 'gefaehrdung_bibliothek'
+    AND COLUMN_NAME = 'unterkategorie_id');
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE gefaehrdung_bibliothek ADD COLUMN unterkategorie_id INT UNSIGNED DEFAULT NULL',
+    'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Fertig!
 SELECT 'Datenbank-Update V4 (Bibliothek-Erweiterung) erfolgreich!' as Status;
