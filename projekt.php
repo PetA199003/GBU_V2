@@ -626,17 +626,17 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
 
 <!-- Modal: Neue Gefährdung / Bearbeiten -->
 <div class="modal fade" id="neueGefaehrdungModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content" style="max-height: 90vh;">
             <form method="POST" id="gefaehrdungForm">
                 <input type="hidden" name="action" id="form_action" value="add_new">
                 <input type="hidden" name="gefaehrdung_id" id="form_gefaehrdung_id" value="">
 
-                <div class="modal-header">
+                <div class="modal-header py-2">
                     <h5 class="modal-title" id="gefaehrdungModalTitle"><i class="bi bi-plus-circle me-2"></i>Neue Gefährdung</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body" style="overflow-y: auto;">
                     <div class="row">
                         <!-- Linke Spalte: Gefährdung -->
                         <div class="col-md-6">
@@ -803,7 +803,7 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer py-2">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Speichern</button>
                 </div>
