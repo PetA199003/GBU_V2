@@ -99,7 +99,7 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
             line-height: 1.3;
             padding: 10mm;
         }
-        h1 { font-size: 14pt; margin-bottom: 8px; }
+        h1 { font-size: 18pt; margin-bottom: 8px; }
         h2 { font-size: 11pt; margin: 12px 0 5px; background: #0d6efd; color: white; padding: 4px 8px; }
         table {
             width: 100%;
@@ -135,8 +135,14 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
         .legend-item { display: inline-block; margin-right: 12px; }
         .signature-line { border-bottom: 1px solid #333; height: 30px; margin-bottom: 3px; }
         @media print {
-            body { padding: 8mm; }
+            body { padding: 8mm; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             .no-print { display: none; }
+            .risk-low { background: #92D050 !important; -webkit-print-color-adjust: exact !important; }
+            .risk-medium { background: #FFFF00 !important; -webkit-print-color-adjust: exact !important; }
+            .risk-high { background: #FFC000 !important; -webkit-print-color-adjust: exact !important; }
+            .risk-very-high { background: #FF0000 !important; color: white !important; -webkit-print-color-adjust: exact !important; }
+            .stop-s, .stop-t, .stop-o, .stop-p { -webkit-print-color-adjust: exact !important; }
+            h2 { background: #0d6efd !important; color: white !important; -webkit-print-color-adjust: exact !important; }
         }
         .print-btn {
             position: fixed;
@@ -172,15 +178,13 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
     <a href="javascript:history.back()" class="back-btn no-print">← Zurück</a>
     <button class="print-btn no-print" onclick="window.print()">🖨️ Drucken / PDF</button>
 
-    <h1>Gefährdungsbeurteilung</h1>
-    <p style="margin-bottom: 10px; font-size: 8pt;">nach §§ 5, 6 ArbSchG, § 3 ArbStättV, ASR V3 "Gefährdungsbeurteilung"</p>
+    <h1>Gefaehrdungsbeurteilung</h1>
 
     <table class="header-table">
         <tr>
             <td style="width: 50%;">
                 <strong>Projekt:</strong> <?= htmlspecialchars($projekt['name']) ?><br>
-                <strong>Location:</strong> <?= htmlspecialchars($projekt['location']) ?><br>
-                <strong>Art:</strong> <?= $projekt['indoor_outdoor'] === 'indoor' ? 'Indoor' : ($projekt['indoor_outdoor'] === 'outdoor' ? 'Outdoor' : 'Indoor/Outdoor') ?>
+                <strong>Location:</strong> <?= htmlspecialchars($projekt['location']) ?>
             </td>
             <td style="width: 50%;">
                 <strong>Zeitraum:</strong> <?= date('d.m.Y', strtotime($projekt['zeitraum_von'])) ?> - <?= date('d.m.Y', strtotime($projekt['zeitraum_bis'])) ?><br>
@@ -193,15 +197,19 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
     </table>
 
     <div class="legend">
-        <strong>Legende:</strong>
-        <span class="legend-item"><strong>S</strong> = Schadenschwere (1-3)</span>
-        <span class="legend-item"><strong>W</strong> = Wahrscheinlichkeit (1-3)</span>
-        <span class="legend-item"><strong>R</strong> = Risiko (S² × W)</span>
-        <br>
+        <strong>Legende Schadenschwere (S):</strong><br>
+        <span class="legend-item">1 = Leichte Verletzungen / Erkrankungen</span><br>
+        <span class="legend-item">2 = Mittlere Verletzungen / Erkrankungen</span><br>
+        <span class="legend-item">3 = Schwere Verletzungen / bleibende Schaeden / Moeglicher Tod</span><br><br>
+        <strong>Legende Wahrscheinlichkeit (W):</strong><br>
+        <span class="legend-item">1 = unwahrscheinlich</span><br>
+        <span class="legend-item">2 = wahrscheinlich</span><br>
+        <span class="legend-item">3 = sehr wahrscheinlich</span><br><br>
+        <strong>R</strong> = Risiko (S² × W) |
         <span class="legend-item"><span class="stop-s">S</span> Substitution</span>
         <span class="legend-item"><span class="stop-t">T</span> Technisch</span>
         <span class="legend-item"><span class="stop-o">O</span> Organisatorisch</span>
-        <span class="legend-item"><span class="stop-p">P</span> Persönlich (PSA)</span>
+        <span class="legend-item"><span class="stop-p">P</span> Persoenlich (PSA)</span>
     </div>
 
     <?php if (empty($gefaehrdungen)): ?>
@@ -284,27 +292,8 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
     <p style="padding: 5px;"><?= nl2br(htmlspecialchars($projekt['beschreibung'])) ?></p>
     <?php endif; ?>
 
-    <div style="margin-top: 20px;">
-        <table class="header-table" style="width: 100%;">
-            <tr>
-                <td style="width: 33%; text-align: center;">
-                    <div class="signature-line"></div>
-                    <small>Ersteller / Datum</small>
-                </td>
-                <td style="width: 33%; text-align: center;">
-                    <div class="signature-line"></div>
-                    <small>Fachkraft für Arbeitssicherheit / Datum</small>
-                </td>
-                <td style="width: 33%; text-align: center;">
-                    <div class="signature-line"></div>
-                    <small>Geschäftsführung / Datum</small>
-                </td>
-            </tr>
-        </table>
-    </div>
-
     <p style="margin-top: 15px; font-size: 7pt; color: #666; text-align: center;">
-        Erstellt am <?= date('d.m.Y H:i') ?> | GBU System
+        Erstellt am <?= date('d.m.Y H:i') ?>
     </p>
 </body>
 </html>
