@@ -86,7 +86,7 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
         .content-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         .content-table th, .content-table td { border: 1px solid #000; padding: 5px 8px; vertical-align: top; }
         .content-table th { background: #f0f0f0; text-align: left; width: 120px; }
-        .icon-cell { width: 80px; text-align: center; vertical-align: middle; }
+        .icon-cell { width: 100px; text-align: center; vertical-align: middle; }
         ul { margin: 0; padding-left: 20px; }
         li { margin-bottom: 3px; }
         .page-break { page-break-before: always; }
@@ -137,7 +137,7 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
         <tr>
             <td class="icon-cell">
                 <?php if ($bildUrl): ?>
-                <img src="<?= htmlspecialchars($bildUrl) ?>" style="max-width: 60px; max-height: 60px;" onerror="this.style.display='none'">
+                <img src="<?= htmlspecialchars($bildUrl) ?>" style="max-width: 80px; max-height: 80px;" onerror="this.style.display='none'">
                 <?php else: ?>
                 &nbsp;
                 <?php endif; ?>

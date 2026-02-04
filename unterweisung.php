@@ -418,18 +418,15 @@ require_once __DIR__ . '/templates/header.php';
                                                     onclick="editBaustein(<?= $b['id'] ?>, '<?= addslashes(sanitize($b['kategorie'])) ?>', '<?= addslashes(sanitize($b['titel'])) ?>', `<?= addslashes(sanitize($b['inhalt'])) ?>`, '<?= addslashes(sanitize($b['bild_url'] ?? '')) ?>')">
                                                 <i class="bi bi-pencil"></i>
                                             </button>
-                                            <form method="POST" class="d-inline ms-1" onsubmit="return confirm('Baustein wirklich loeschen?')">
-                                                <input type="hidden" name="action" value="delete_baustein">
-                                                <input type="hidden" name="baustein_id" value="<?= $b['id'] ?>">
-                                                <button type="submit" class="btn btn-sm btn-link text-danger p-0" title="Loeschen">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </form>
+                                            <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1" title="Loeschen"
+                                                    onclick="deleteBaustein(<?= $b['id'] ?>)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
                                             <?php endif; ?>
                                             <div class="collapse mt-2" id="preview<?= $b['id'] ?>">
                                                 <div class="card card-body bg-light small d-flex flex-row">
                                                     <?php if ($b['bild_url']): ?>
-                                                    <img src="<?= sanitize($b['bild_url']) ?>" alt="Piktogramm" class="me-3" style="width: 60px; height: 60px; object-fit: contain;">
+                                                    <img src="<?= sanitize($b['bild_url']) ?>" alt="Piktogramm" class="me-3" style="max-width: 200px; max-height: 200px; object-fit: contain;">
                                                     <?php endif; ?>
                                                     <div><?= nl2br(sanitize($b['inhalt'])) ?></div>
                                                 </div>
@@ -721,6 +718,14 @@ require_once __DIR__ . '/templates/header.php';
 </div>
 <?php endif; ?>
 
+<!-- Verstecktes Formular fuer Baustein-Loeschung (ausserhalb des Hauptformulars) -->
+<?php if ($isAdmin): ?>
+<form method="POST" id="deleteBausteinForm" style="display: none;">
+    <input type="hidden" name="action" value="delete_baustein">
+    <input type="hidden" name="baustein_id" id="deleteBausteinId">
+</form>
+<?php endif; ?>
+
 <!-- Modal: Unterschrift anzeigen -->
 <div class="modal fade" id="signatureModal" tabindex="-1">
     <div class="modal-dialog">
@@ -759,6 +764,13 @@ function showSignature(name, date, imageData, teilnehmerId) {
     document.getElementById('sigImage').src = imageData;
     document.getElementById('sigTeilnehmerId').value = teilnehmerId;
     new bootstrap.Modal(document.getElementById('signatureModal')).show();
+}
+
+function deleteBaustein(bausteinId) {
+    if (confirm('Baustein wirklich loeschen?')) {
+        document.getElementById('deleteBausteinId').value = bausteinId;
+        document.getElementById('deleteBausteinForm').submit();
+    }
 }
 
 function editBaustein(id, kategorie, titel, inhalt, bildUrl) {
