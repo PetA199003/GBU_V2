@@ -187,6 +187,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             setFlashMessage('success', 'Teilnehmer entfernt');
             break;
 
+        case 'edit_teilnehmer':
+            // Nur bearbeiten wenn keine Unterschrift vorhanden
+            $teilnehmerCheck = $db->fetchOne(
+                "SELECT unterschrift FROM unterweisung_teilnehmer WHERE id = ? AND unterweisung_id = ?",
+                [$_POST['teilnehmer_id'], $unterweisungId]
+            );
+            if ($teilnehmerCheck && !$teilnehmerCheck['unterschrift']) {
+                $db->update('unterweisung_teilnehmer', [
+                    'vorname' => $_POST['vorname'] ?? '',
+                    'nachname' => $_POST['nachname'] ?? '',
+                    'firma' => $_POST['firma'] ?? null
+                ], 'id = :id AND unterweisung_id = :uid', [
+                    'id' => $_POST['teilnehmer_id'],
+                    'uid' => $unterweisungId
+                ]);
+                setFlashMessage('success', 'Teilnehmer aktualisiert');
+            } else {
+                setFlashMessage('error', 'Teilnehmer mit Unterschrift kann nicht bearbeitet werden');
+            }
+            break;
+
         case 'delete_unterschrift':
             // Bearbeiter und Admin duerfen Unterschriften loeschen
             if ($canEdit) {
@@ -549,7 +570,13 @@ require_once __DIR__ . '/templates/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <?php if ($canEdit): ?>
-                                    <td>
+                                    <td class="text-nowrap">
+                                        <?php if (!$t['unterschrift']): ?>
+                                        <button type="button" class="btn btn-sm btn-link text-primary p-0" title="Bearbeiten"
+                                                onclick="editTeilnehmer(<?= $t['id'] ?>, '<?= addslashes(sanitize($t['vorname'])) ?>', '<?= addslashes(sanitize($t['nachname'])) ?>', '<?= addslashes(sanitize($t['firma'] ?? '')) ?>')">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <?php endif; ?>
                                         <form method="POST" class="d-inline" onsubmit="return confirm('Teilnehmer entfernen?')">
                                             <input type="hidden" name="action" value="delete_teilnehmer">
                                             <input type="hidden" name="teilnehmer_id" value="<?= $t['id'] ?>">
@@ -738,6 +765,44 @@ require_once __DIR__ . '/templates/header.php';
 </div>
 <?php endif; ?>
 
+<!-- Modal: Teilnehmer bearbeiten -->
+<?php if ($canEdit): ?>
+<div class="modal fade" id="editTeilnehmerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="action" value="edit_teilnehmer">
+                <input type="hidden" name="teilnehmer_id" id="editTeilnehmerId">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Teilnehmer bearbeiten</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Vorname *</label>
+                        <input type="text" class="form-control" name="vorname" id="editTeilnehmerVorname" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nachname *</label>
+                        <input type="text" class="form-control" name="nachname" id="editTeilnehmerNachname" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Firma</label>
+                        <input type="text" class="form-control" name="firma" id="editTeilnehmerFirma">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>Speichern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- Verstecktes Formular fuer Baustein-Loeschung (ausserhalb des Hauptformulars) -->
 <?php if ($isAdmin): ?>
 <form method="POST" id="deleteBausteinForm" style="display: none;">
@@ -791,6 +856,14 @@ function deleteBaustein(bausteinId) {
         document.getElementById('deleteBausteinId').value = bausteinId;
         document.getElementById('deleteBausteinForm').submit();
     }
+}
+
+function editTeilnehmer(id, vorname, nachname, firma) {
+    document.getElementById('editTeilnehmerId').value = id;
+    document.getElementById('editTeilnehmerVorname').value = vorname;
+    document.getElementById('editTeilnehmerNachname').value = nachname;
+    document.getElementById('editTeilnehmerFirma').value = firma;
+    new bootstrap.Modal(document.getElementById('editTeilnehmerModal')).show();
 }
 
 function editBaustein(id, kategorie, titel, inhalt, bildUrl) {
