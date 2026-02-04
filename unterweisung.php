@@ -147,12 +147,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             break;
 
         case 'update_settings':
+            // Pruefen ob bereits unterschrieben - dann nur Admin darf aendern
+            if ($unterweisung['durchfuehrer_unterschrift'] && !$isAdmin) {
+                setFlashMessage('error', 'Nach Unterschrift kann nur ein Admin die Daten aendern');
+                break;
+            }
             $db->update('projekt_unterweisungen', [
                 'titel' => $_POST['titel'] ?? 'Sicherheitsunterweisung',
                 'durchgefuehrt_von' => $_POST['durchgefuehrt_von'] ?? null,
                 'durchgefuehrt_am' => $_POST['durchgefuehrt_am'] ?: null
             ], 'id = :id', ['id' => $unterweisungId]);
             setFlashMessage('success', 'Einstellungen gespeichert');
+            break;
+
+        case 'sign_durchfuehrer':
+            // Durchfuehrer unterschreibt
+            $signatur = $_POST['signatur'] ?? null;
+            if ($signatur) {
+                $db->update('projekt_unterweisungen', [
+                    'durchfuehrer_unterschrift' => $signatur,
+                    'durchfuehrer_unterschrieben_am' => date('Y-m-d H:i:s')
+                ], 'id = :id', ['id' => $unterweisungId]);
+                setFlashMessage('success', 'Unterschrift gespeichert');
+            }
+            break;
+
+        case 'delete_durchfuehrer_unterschrift':
+            // Nur Admin darf Durchfuehrer-Unterschrift loeschen
+            if ($isAdmin) {
+                $db->update('projekt_unterweisungen', [
+                    'durchfuehrer_unterschrift' => null,
+                    'durchfuehrer_unterschrieben_am' => null
+                ], 'id = :id', ['id' => $unterweisungId]);
+                setFlashMessage('success', 'Unterschrift geloescht');
+            }
             break;
 
         case 'save_bausteine':
@@ -363,11 +391,24 @@ require_once __DIR__ . '/templates/header.php';
         <!-- Linke Spalte: Einstellungen und Bausteine -->
         <div class="col-lg-7 mb-4">
             <!-- Einstellungen -->
+            <?php
+            $hatDurchfuehrerUnterschrift = !empty($unterweisung['durchfuehrer_unterschrift']);
+            $settingsLocked = $hatDurchfuehrerUnterschrift && !$isAdmin;
+            ?>
             <div class="card mb-4">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-gear me-2"></i>Einstellungen</h5>
+                    <?php if ($hatDurchfuehrerUnterschrift): ?>
+                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Unterschrieben</span>
+                    <?php endif; ?>
                 </div>
                 <div class="card-body">
+                    <?php if ($settingsLocked): ?>
+                    <div class="alert alert-info small mb-3">
+                        <i class="bi bi-lock me-1"></i>
+                        Die Einstellungen sind nach der Unterschrift gesperrt. Nur ein Admin kann sie aendern.
+                    </div>
+                    <?php endif; ?>
                     <form method="POST">
                         <input type="hidden" name="action" value="update_settings">
                         <div class="row">
@@ -375,21 +416,62 @@ require_once __DIR__ . '/templates/header.php';
                                 <label class="form-label">Durchgefuehrt von</label>
                                 <input type="text" class="form-control" name="durchgefuehrt_von"
                                        value="<?= sanitize($unterweisung['durchgefuehrt_von'] ?? $aktuellerBenutzerName) ?>"
-                                       <?= !$canEdit ? 'disabled' : '' ?>>
+                                       <?= (!$canEdit || $settingsLocked) ? 'disabled' : '' ?>>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Datum</label>
                                 <input type="date" class="form-control" name="durchgefuehrt_am"
                                        value="<?= $unterweisung['durchgefuehrt_am'] ?? date('Y-m-d') ?>"
-                                       <?= !$canEdit ? 'disabled' : '' ?>>
+                                       <?= (!$canEdit || $settingsLocked) ? 'disabled' : '' ?>>
                             </div>
                         </div>
-                        <?php if ($canEdit): ?>
+                        <?php if ($canEdit && !$settingsLocked): ?>
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-check me-2"></i>Speichern
                         </button>
                         <?php endif; ?>
                     </form>
+
+                    <hr class="my-3">
+
+                    <!-- Unterschrift des Durchfuehrenden -->
+                    <div class="mt-3">
+                        <label class="form-label fw-bold">Unterschrift des Durchfuehrenden</label>
+                        <?php if ($hatDurchfuehrerUnterschrift): ?>
+                        <div class="border rounded p-3 bg-light">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <img src="<?= $unterweisung['durchfuehrer_unterschrift'] ?>" alt="Unterschrift" style="max-height: 80px;">
+                                    <p class="text-muted small mb-0 mt-2">
+                                        Unterschrieben am <?= date('d.m.Y \u\m H:i', strtotime($unterweisung['durchfuehrer_unterschrieben_am'])) ?> Uhr
+                                    </p>
+                                </div>
+                                <?php if ($isAdmin): ?>
+                                <form method="POST" onsubmit="return confirm('Unterschrift wirklich loeschen?')">
+                                    <input type="hidden" name="action" value="delete_durchfuehrer_unterschrift">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php else: ?>
+                        <?php if ($canEdit): ?>
+                        <div class="border rounded p-3 bg-light">
+                            <p class="text-muted small mb-2">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Nach der Unterschrift werden Name und Datum gesperrt.
+                            </p>
+                            <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#signDurchfuehrerModal">
+                                <i class="bi bi-pen me-2"></i>Jetzt unterschreiben
+                            </button>
+                        </div>
+                        <?php else: ?>
+                        <p class="text-muted">Noch nicht unterschrieben</p>
+                        <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 
@@ -722,6 +804,43 @@ require_once __DIR__ . '/templates/header.php';
 </div>
 <?php endif; ?>
 
+<!-- Modal: Durchfuehrer Unterschrift -->
+<?php if ($canEdit && !$hatDurchfuehrerUnterschrift): ?>
+<div class="modal fade" id="signDurchfuehrerModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title"><i class="bi bi-pen me-2"></i>Unterweisung unterschreiben</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">
+                    <strong>Durchgefuehrt von:</strong> <?= sanitize($unterweisung['durchgefuehrt_von'] ?? $aktuellerBenutzerName) ?><br>
+                    <strong>Datum:</strong> <?= $unterweisung['durchgefuehrt_am'] ? date('d.m.Y', strtotime($unterweisung['durchgefuehrt_am'])) : date('d.m.Y') ?>
+                </p>
+                <div class="alert alert-warning small">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Nach der Unterschrift koennen Name und Datum nicht mehr geaendert werden (nur durch Admin).
+                </div>
+                <label class="form-label">Ihre Unterschrift:</label>
+                <canvas id="durchfuehrerCanvas" style="width: 100%; height: 150px; border: 2px dashed #ccc; border-radius: 8px; cursor: crosshair; touch-action: none;"></canvas>
+                <div class="mt-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearDurchfuehrerSignature()">
+                        <i class="bi bi-eraser me-1"></i>Loeschen
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-warning" onclick="saveDurchfuehrerSignature()">
+                    <i class="bi bi-check-lg me-2"></i>Unterschreiben
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- Modal: Projektspezifischen Baustein hinzufuegen -->
 <?php if ($canEdit): ?>
 <div class="modal fade" id="addProjektBausteinModal" tabindex="-1">
@@ -843,6 +962,133 @@ require_once __DIR__ . '/templates/header.php';
 </div>
 
 <script>
+// Durchfuehrer-Unterschrift Canvas
+let dfCanvas, dfCtx, dfIsDrawing = false, dfLastX = 0, dfLastY = 0;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('signDurchfuehrerModal');
+    if (modal) {
+        modal.addEventListener('shown.bs.modal', initDurchfuehrerCanvas);
+    }
+});
+
+function initDurchfuehrerCanvas() {
+    dfCanvas = document.getElementById('durchfuehrerCanvas');
+    if (!dfCanvas) return;
+
+    dfCtx = dfCanvas.getContext('2d');
+    const rect = dfCanvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+
+    dfCanvas.width = rect.width * dpr;
+    dfCanvas.height = rect.height * dpr;
+    dfCanvas.style.width = rect.width + 'px';
+    dfCanvas.style.height = rect.height + 'px';
+    dfCtx.scale(dpr, dpr);
+
+    dfCtx.fillStyle = '#fff';
+    dfCtx.fillRect(0, 0, rect.width, rect.height);
+    dfCtx.strokeStyle = '#000';
+    dfCtx.lineWidth = 2;
+    dfCtx.lineCap = 'round';
+
+    // Touch Events
+    dfCanvas.addEventListener('touchstart', dfHandleTouchStart, { passive: false });
+    dfCanvas.addEventListener('touchmove', dfHandleTouchMove, { passive: false });
+    dfCanvas.addEventListener('touchend', () => dfIsDrawing = false);
+
+    // Mouse Events
+    dfCanvas.addEventListener('mousedown', dfHandleMouseDown);
+    dfCanvas.addEventListener('mousemove', dfHandleMouseMove);
+    dfCanvas.addEventListener('mouseup', () => dfIsDrawing = false);
+    dfCanvas.addEventListener('mouseleave', () => dfIsDrawing = false);
+}
+
+function dfHandleTouchStart(e) {
+    e.preventDefault();
+    dfIsDrawing = true;
+    const pos = dfGetTouchPos(e);
+    dfLastX = pos.x;
+    dfLastY = pos.y;
+}
+
+function dfHandleTouchMove(e) {
+    if (!dfIsDrawing) return;
+    e.preventDefault();
+    const pos = dfGetTouchPos(e);
+    dfCtx.beginPath();
+    dfCtx.moveTo(dfLastX, dfLastY);
+    dfCtx.lineTo(pos.x, pos.y);
+    dfCtx.stroke();
+    dfLastX = pos.x;
+    dfLastY = pos.y;
+}
+
+function dfGetTouchPos(e) {
+    const rect = dfCanvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+}
+
+function dfHandleMouseDown(e) {
+    dfIsDrawing = true;
+    const rect = dfCanvas.getBoundingClientRect();
+    dfLastX = e.clientX - rect.left;
+    dfLastY = e.clientY - rect.top;
+}
+
+function dfHandleMouseMove(e) {
+    if (!dfIsDrawing) return;
+    const rect = dfCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    dfCtx.beginPath();
+    dfCtx.moveTo(dfLastX, dfLastY);
+    dfCtx.lineTo(x, y);
+    dfCtx.stroke();
+    dfLastX = x;
+    dfLastY = y;
+}
+
+function clearDurchfuehrerSignature() {
+    if (!dfCanvas || !dfCtx) return;
+    const rect = dfCanvas.getBoundingClientRect();
+    dfCtx.fillStyle = '#fff';
+    dfCtx.fillRect(0, 0, rect.width, rect.height);
+    dfCtx.strokeStyle = '#000';
+}
+
+function saveDurchfuehrerSignature() {
+    if (!dfCanvas || !dfCtx) return;
+
+    // Pruefen ob unterschrieben
+    const imageData = dfCtx.getImageData(0, 0, dfCanvas.width, dfCanvas.height);
+    let hasSignature = false;
+    for (let i = 0; i < imageData.data.length; i += 4) {
+        if (imageData.data[i] < 250 || imageData.data[i+1] < 250 || imageData.data[i+2] < 250) {
+            hasSignature = true;
+            break;
+        }
+    }
+
+    if (!hasSignature) {
+        alert('Bitte unterschreiben Sie zuerst.');
+        return;
+    }
+
+    const signatureData = dfCanvas.toDataURL('image/png');
+
+    // Formular erstellen und absenden
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.innerHTML = `
+        <input type="hidden" name="action" value="sign_durchfuehrer">
+        <input type="hidden" name="signatur" value="${signatureData}">
+    `;
+    document.body.appendChild(form);
+    form.submit();
+}
+
 function showSignature(name, date, imageData, teilnehmerId) {
     document.getElementById('sigName').textContent = name;
     document.getElementById('sigDate').textContent = date;

@@ -190,7 +190,8 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
         .header-info td { padding: 3px 0; }
         .header-info .label { width: 180px; }
         .header-info .value { font-weight: bold; }
-        .signature-box { float: right; width: 200px; border-bottom: 1px solid #000; height: 30px; margin-top: 10px; }
+        .signature-box { float: right; width: 200px; border-bottom: 1px solid #000; height: 40px; margin-top: 10px; text-align: center; }
+        .signature-box img { max-height: 38px; max-width: 100%; }
         .signature-label { float: right; width: 200px; text-align: center; font-size: 8pt; clear: both; }
         .info-text { margin: 15px 0; font-style: italic; }
         .confirm-text { margin: 20px 0; font-weight: bold; text-align: center; }
@@ -220,7 +221,11 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
     </div>
 
     <div class="header-info">
-        <div class="signature-box"></div>
+        <div class="signature-box">
+            <?php if (!empty($unterweisung['durchfuehrer_unterschrift'])): ?>
+            <img src="<?= htmlspecialchars($unterweisung['durchfuehrer_unterschrift']) ?>" alt="Unterschrift Durchfuehrer">
+            <?php endif; ?>
+        </div>
         <div class="signature-label">Unterschrift</div>
 
         <table>
@@ -230,7 +235,14 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
             </tr>
             <tr>
                 <td class="label">am:</td>
-                <td class="value"><?= $unterweisung['durchgefuehrt_am'] ? date('d.m.Y', strtotime($unterweisung['durchgefuehrt_am'])) : date('d.m.Y') ?></td>
+                <td class="value">
+                    <?= $unterweisung['durchgefuehrt_am'] ? date('d.m.Y', strtotime($unterweisung['durchgefuehrt_am'])) : date('d.m.Y') ?>
+                    <?php if (!empty($unterweisung['durchfuehrer_unterschrieben_am'])): ?>
+                    <span style="font-weight: normal; font-size: 8pt; color: #666;">
+                        (unterschrieben <?= date('d.m.Y H:i', strtotime($unterweisung['durchfuehrer_unterschrieben_am'])) ?> Uhr)
+                    </span>
+                    <?php endif; ?>
+                </td>
             </tr>
             <tr>
                 <td class="label">Veranstaltung:</td>
