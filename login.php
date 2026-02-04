@@ -97,9 +97,11 @@ $pageTitle = 'Anmelden';
             <hr class="my-4">
 
             <div class="text-center text-muted small">
-                <p class="mb-1">Demo-Zugangsdaten:</p>
-                <p class="mb-0"><strong>Benutzer:</strong> admin</p>
-                <p><strong>Passwort:</strong> password</p>
+                <p class="mb-1">&copy; <?= date('Y') ?> Peter Astor</p>
+                <p class="mb-0">
+                    <i class="bi bi-envelope me-1"></i>
+                    <a href="mailto:info@peter-astor.ch" class="text-muted">info@peter-astor.ch</a>
+                </p>
             </div>
         </div>
     </div>
