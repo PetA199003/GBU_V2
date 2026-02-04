@@ -176,6 +176,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             setFlashMessage('success', 'Teilnehmer entfernt');
             break;
 
+        case 'delete_unterschrift':
+            if ($isAdmin) {
+                $db->update('unterweisung_teilnehmer', [
+                    'unterschrift' => null,
+                    'unterschrieben_am' => null
+                ], 'id = :id AND unterweisung_id = :uid', [
+                    'id' => $_POST['teilnehmer_id'],
+                    'uid' => $unterweisungId
+                ]);
+                setFlashMessage('success', 'Unterschrift geloescht');
+            }
+            break;
+
+        case 'add_projekt_baustein':
+            // Bearbeiter und Admin koennen projekt-spezifische Bausteine hinzufuegen
+            $bildUrl = null;
+            if (isset($_FILES['bild']) && $_FILES['bild']['error'] === UPLOAD_ERR_OK) {
+                $uploadDir = __DIR__ . '/uploads/piktogramme/';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
+                $ext = pathinfo($_FILES['bild']['name'], PATHINFO_EXTENSION);
+                $filename = 'piktogramm_' . time() . '_' . uniqid() . '.' . $ext;
+                if (move_uploaded_file($_FILES['bild']['tmp_name'], $uploadDir . $filename)) {
+                    $bildUrl = BASE_URL . '/uploads/piktogramme/' . $filename;
+                }
+            }
+
+            // Baustein als projekt-spezifisch speichern
+            $newBausteinId = $db->insert('unterweisungs_bausteine', [
+                'kategorie' => 'Projektspezifisch',
+                'titel' => $_POST['titel'] ?? '',
+                'inhalt' => $_POST['inhalt'] ?? '',
+                'bild_url' => $bildUrl,
+                'sortierung' => 200,
+                'aktiv' => 1,
+                'projekt_id' => $projektId  // Nur fuer dieses Projekt
+            ]);
+
+            // Direkt zur Unterweisung hinzufuegen
+            $maxSort = $db->fetchOne("SELECT MAX(sortierung) as max FROM unterweisung_bausteine WHERE unterweisung_id = ?", [$unterweisungId]);
+            $db->insert('unterweisung_bausteine', [
+                'unterweisung_id' => $unterweisungId,
+                'baustein_id' => $newBausteinId,
+                'sortierung' => ($maxSort['max'] ?? 0) + 1
+            ]);
+
+            setFlashMessage('success', 'Projektspezifischer Inhalt hinzugefuegt');
+            break;
+
         case 'import_csv':
             if (isset($_FILES['csv_file']) && $_FILES['csv_file']['error'] === UPLOAD_ERR_OK) {
                 $handle = fopen($_FILES['csv_file']['tmp_name'], 'r');
@@ -214,8 +264,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
     redirect('unterweisung.php?projekt_id=' . $projektId);
 }
 
-// Alle Bausteine laden
-$alleBausteine = $db->fetchAll("SELECT * FROM unterweisungs_bausteine WHERE aktiv = 1 ORDER BY sortierung, kategorie, titel");
+// Alle Bausteine laden (globale + projekt-spezifische)
+$alleBausteine = $db->fetchAll("
+    SELECT * FROM unterweisungs_bausteine
+    WHERE aktiv = 1 AND (projekt_id IS NULL OR projekt_id = ?)
+    ORDER BY sortierung, kategorie, titel
+", [$projektId]);
 
 // Bausteine nach Kategorie gruppieren
 $bausteineNachKategorie = [];
@@ -310,11 +364,18 @@ require_once __DIR__ . '/templates/header.php';
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>Inhalte auswaehlen</h5>
-                    <?php if ($isAdmin): ?>
-                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addBausteinModal">
-                        <i class="bi bi-plus-lg me-1"></i>Eigenen Inhalt
-                    </button>
-                    <?php endif; ?>
+                    <div class="d-flex gap-2">
+                        <?php if ($canEdit): ?>
+                        <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#addProjektBausteinModal">
+                            <i class="bi bi-plus-lg me-1"></i>Projektinhalt
+                        </button>
+                        <?php endif; ?>
+                        <?php if ($isAdmin): ?>
+                        <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addBausteinModal">
+                            <i class="bi bi-plus-lg me-1"></i>Globaler Inhalt
+                        </button>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 <div class="card-body">
                     <form method="POST" id="bausteineForm">
@@ -467,9 +528,11 @@ require_once __DIR__ . '/templates/header.php';
                                     <td class="small text-muted"><?= sanitize($t['firma'] ?? '-') ?></td>
                                     <td class="text-center">
                                         <?php if ($t['unterschrift']): ?>
-                                        <span class="badge bg-success" title="<?= date('d.m.Y H:i', strtotime($t['unterschrieben_am'])) ?>">
+                                        <button type="button" class="btn btn-sm btn-success p-1"
+                                                onclick="showSignature('<?= sanitize($t['vorname'] . ' ' . $t['nachname']) ?>', '<?= date('d.m.Y H:i', strtotime($t['unterschrieben_am'])) ?>', '<?= $t['unterschrift'] ?>', <?= $t['id'] ?>)"
+                                                title="Unterschrift anzeigen">
                                             <i class="bi bi-check"></i> <?= date('d.m.', strtotime($t['unterschrieben_am'])) ?>
-                                        </span>
+                                        </button>
                                         <?php else: ?>
                                         <span class="badge bg-warning text-dark">Offen</span>
                                         <?php endif; ?>
@@ -615,7 +678,89 @@ require_once __DIR__ . '/templates/header.php';
 </div>
 <?php endif; ?>
 
+<!-- Modal: Projektspezifischen Baustein hinzufuegen -->
+<?php if ($canEdit): ?>
+<div class="modal fade" id="addProjektBausteinModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="add_projekt_baustein">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Projektspezifischen Inhalt hinzufuegen</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Dieser Inhalt wird nur fuer dieses Projekt erstellt und ist nicht in anderen Projekten sichtbar.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Titel *</label>
+                        <input type="text" class="form-control" name="titel" required placeholder="z.B. Spezielle Baustellenregeln">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Inhalt / Beschreibung *</label>
+                        <textarea class="form-control" name="inhalt" rows="6" required placeholder="• Punkt 1&#10;• Punkt 2&#10;• Punkt 3"></textarea>
+                        <small class="text-muted">Fuer Aufzaehlungen verwenden Sie • am Zeilenanfang</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Piktogramm / Bild (optional)</label>
+                        <input type="file" class="form-control" name="bild" accept="image/*">
+                        <small class="text-muted">Empfohlene Groesse: 100x100 Pixel, PNG oder JPG</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-plus-lg me-2"></i>Hinzufuegen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<!-- Modal: Unterschrift anzeigen -->
+<div class="modal fade" id="signatureModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pen me-2"></i>Unterschrift</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="mb-2"><strong id="sigName"></strong></p>
+                <p class="text-muted small mb-3">Unterschrieben am: <span id="sigDate"></span></p>
+                <div class="border rounded p-3 bg-light">
+                    <img id="sigImage" src="" alt="Unterschrift" style="max-width: 100%; max-height: 200px;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <?php if ($isAdmin): ?>
+                <form method="POST" id="deleteSignatureForm" onsubmit="return confirm('Unterschrift wirklich loeschen?')">
+                    <input type="hidden" name="action" value="delete_unterschrift">
+                    <input type="hidden" name="teilnehmer_id" id="sigTeilnehmerId">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-2"></i>Unterschrift loeschen
+                    </button>
+                </form>
+                <?php endif; ?>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schliessen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+function showSignature(name, date, imageData, teilnehmerId) {
+    document.getElementById('sigName').textContent = name;
+    document.getElementById('sigDate').textContent = date;
+    document.getElementById('sigImage').src = imageData;
+    document.getElementById('sigTeilnehmerId').value = teilnehmerId;
+    new bootstrap.Modal(document.getElementById('signatureModal')).show();
+}
+
 function editBaustein(id, kategorie, titel, inhalt, bildUrl) {
     document.getElementById('editBausteinId').value = id;
     document.getElementById('editKategorieSelect').value = kategorie;

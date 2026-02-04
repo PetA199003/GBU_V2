@@ -125,14 +125,24 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
     <?php foreach ($bausteineNachKat as $kategorie => $bausteine): ?>
     <h2><?= htmlspecialchars($kategorie) ?></h2>
     <table class="content-table">
-        <?php foreach ($bausteine as $b): ?>
+        <?php foreach ($bausteine as $b):
+            // Bild-URL korrigieren (relative zu absolute URL)
+            $bildUrl = $b['bild_url'];
+            if ($bildUrl && !preg_match('/^https?:\/\//', $bildUrl)) {
+                $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+                $host = $_SERVER['HTTP_HOST'];
+                $bildUrl = $protocol . '://' . $host . $bildUrl;
+            }
+        ?>
         <tr>
-            <?php if ($b['bild_url']): ?>
             <td class="icon-cell">
-                <img src="<?= htmlspecialchars($b['bild_url']) ?>" style="max-width: 60px; max-height: 60px;">
+                <?php if ($bildUrl): ?>
+                <img src="<?= htmlspecialchars($bildUrl) ?>" style="max-width: 60px; max-height: 60px;" onerror="this.style.display='none'">
+                <?php else: ?>
+                &nbsp;
+                <?php endif; ?>
             </td>
-            <?php endif; ?>
-            <td colspan="<?= $b['bild_url'] ? '1' : '2' ?>">
+            <td>
                 <?php if (count($bausteine) > 1 || $b['titel'] !== $kategorie): ?>
                 <strong><?= htmlspecialchars($b['titel']) ?></strong><br>
                 <?php endif; ?>
@@ -240,9 +250,10 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
     <table class="teilnehmer">
         <thead>
             <tr>
-                <th style="width: 25%;">Name</th>
-                <th style="width: 25%;">Vorname</th>
-                <th style="width: 20%;">Datum</th>
+                <th style="width: 22%;">Name</th>
+                <th style="width: 18%;">Vorname</th>
+                <th style="width: 12%;">Firma</th>
+                <th style="width: 18%;">Datum / Uhrzeit</th>
                 <th style="width: 30%;">Unterschrift</th>
             </tr>
         </thead>
@@ -250,6 +261,7 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
             <?php if (empty($teilnehmer)): ?>
             <?php for ($i = 0; $i < 15; $i++): ?>
             <tr>
+                <td>&nbsp;</td>
                 <td>&nbsp;</td>
                 <td>&nbsp;</td>
                 <td>&nbsp;</td>
@@ -261,10 +273,16 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
             <tr>
                 <td><?= htmlspecialchars($t['nachname']) ?></td>
                 <td><?= htmlspecialchars($t['vorname']) ?></td>
-                <td><?= $t['unterschrieben_am'] ? date('d.m.Y', strtotime($t['unterschrieben_am'])) : '' ?></td>
+                <td style="font-size: 8pt;"><?= htmlspecialchars($t['firma'] ?? '') ?></td>
+                <td style="font-size: 9pt;">
+                    <?php if ($t['unterschrieben_am']): ?>
+                    <?= date('d.m.Y', strtotime($t['unterschrieben_am'])) ?><br>
+                    <span style="color: #666;"><?= date('H:i', strtotime($t['unterschrieben_am'])) ?> Uhr</span>
+                    <?php endif; ?>
+                </td>
                 <td class="unterschrift">
                     <?php if ($t['unterschrift']): ?>
-                    <img src="<?= htmlspecialchars($t['unterschrift']) ?>" alt="Unterschrift">
+                    <img src="<?= htmlspecialchars($t['unterschrift']) ?>" alt="Unterschrift" style="max-height: 35px; max-width: 100%;">
                     <?php endif; ?>
                 </td>
             </tr>
@@ -272,6 +290,17 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
             <?php endif; ?>
         </tbody>
     </table>
+
+    <?php
+    // Statistik anzeigen
+    $unterschrieben = count(array_filter($teilnehmer, fn($t) => $t['unterschrift']));
+    $offen = count($teilnehmer) - $unterschrieben;
+    ?>
+    <p style="margin-top: 15px; font-size: 9pt;">
+        <strong>Zusammenfassung:</strong> <?= count($teilnehmer) ?> Teilnehmer gesamt |
+        <span style="color: green;"><?= $unterschrieben ?> unterschrieben</span> |
+        <span style="color: orange;"><?= $offen ?> offen</span>
+    </p>
 
     <p class="page-number">Seite 1 von 1</p>
 </body>
