@@ -1,6 +1,6 @@
 <?php
 /**
- * Digitale Signatur fuer Sicherheitsunterweisung (iPad-optimiert)
+ * Digitale Signatur für Sicherheitsunterweisung (iPad-optimiert)
  */
 
 require_once __DIR__ . '/config/config.php';
@@ -57,7 +57,7 @@ $teilnehmerOffen = $db->fetchAll("
     ORDER BY nachname, vorname
 ", [$unterweisungId]);
 
-// Alle Teilnehmer fuer Status
+// Alle Teilnehmer für Status
 $alleTeilnehmer = $db->fetchAll("
     SELECT * FROM unterweisung_teilnehmer
     WHERE unterweisung_id = ?
@@ -166,14 +166,14 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
         <div class="all-done">
             <i class="bi bi-check-circle-fill"></i>
             <h2 class="mt-4">Alle haben unterschrieben!</h2>
-            <p class="text-white-50">Die Sicherheitsunterweisung ist vollstaendig.</p>
+            <p class="text-white-50">Die Sicherheitsunterweisung ist vollständig.</p>
             <a href="<?= BASE_URL ?>/unterweisung.php?projekt_id=<?= $unterweisung['projekt_id'] ?>" class="btn btn-primary mt-3">
-                <i class="bi bi-arrow-left me-2"></i>Zurueck zur Uebersicht
+                <i class="bi bi-arrow-left me-2"></i>Zurück zur Übersicht
             </a>
         </div>
         <?php else: ?>
 
-        <h4 class="mb-3">Bitte waehlen Sie Ihren Namen:</h4>
+        <h4 class="mb-3">Bitte wählen Sie Ihren Namen:</h4>
 
         <div id="teilnehmerList">
             <?php foreach ($teilnehmerOffen as $t): ?>
@@ -194,26 +194,26 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
         <!-- Signatur-Bereich (versteckt bis Auswahl) -->
         <div id="signatureSection" class="signature-area" style="display: none;">
             <h5 class="text-dark mb-3">
-                Unterschrift fuer: <span id="selectedName" class="text-primary"></span>
+                Unterschrift für: <span id="selectedName" class="text-primary"></span>
             </h5>
 
             <canvas id="signatureCanvas"></canvas>
 
             <div class="d-flex justify-content-between align-items-center mt-3">
                 <button type="button" class="btn btn-outline-secondary" onclick="clearSignature()">
-                    <i class="bi bi-eraser me-2"></i>Loeschen
+                    <i class="bi bi-eraser me-2"></i>Löschen
                 </button>
                 <button type="button" class="btn btn-outline-dark" onclick="cancelSignature()">
                     Abbrechen
                 </button>
                 <button type="button" class="btn btn-success btn-sign" onclick="saveSignature()">
-                    <i class="bi bi-check-lg me-2"></i>Bestaetigen
+                    <i class="bi bi-check-lg me-2"></i>Bestätigen
                 </button>
             </div>
 
             <p class="text-muted small mt-3 mb-0">
                 <i class="bi bi-info-circle me-1"></i>
-                Mit Ihrer Unterschrift bestaetigen Sie, dass Sie an der Sicherheitsunterweisung teilgenommen und den Inhalt verstanden haben.
+                Mit Ihrer Unterschrift bestätigen Sie, dass Sie an der Sicherheitsunterweisung teilgenommen und den Inhalt verstanden haben.
             </p>
         </div>
 
@@ -241,7 +241,7 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
 
             ctx = canvas.getContext('2d');
 
-            // Canvas-Groesse setzen (wichtig: nach display: block)
+            // Canvas-Größe setzen (wichtig: nach display: block)
             const rect = canvas.getBoundingClientRect();
             const dpr = window.devicePixelRatio || 1;
 
@@ -265,12 +265,12 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             canvas.removeEventListener('mouseup', handleMouseUp);
             canvas.removeEventListener('mouseleave', handleMouseUp);
 
-            // Touch-Events (fuer iPad/Pencil)
+            // Touch-Events (für iPad/Pencil)
             canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
             canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
             canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
 
-            // Mouse-Events (fuer Desktop)
+            // Mouse-Events (für Desktop)
             canvas.addEventListener('mousedown', handleMouseDown);
             canvas.addEventListener('mousemove', handleMouseMove);
             canvas.addEventListener('mouseup', handleMouseUp);
@@ -384,11 +384,11 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
 
         function saveSignature() {
             if (!selectedTeilnehmerId) {
-                alert('Bitte waehlen Sie zuerst einen Namen aus.');
+                alert('Bitte wählen Sie zuerst einen Namen aus.');
                 return;
             }
 
-            // Pruefen ob Unterschrift vorhanden
+            // Prüfen ob Unterschrift vorhanden
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
             let hasSignature = false;
@@ -426,7 +426,7 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
                     const countEl = document.getElementById('signedCount');
                     countEl.textContent = parseInt(countEl.textContent) + 1;
 
-                    // Zurueck zur Liste oder fertig
+                    // Zurück zur Liste oder fertig
                     const remaining = document.querySelectorAll('.teilnehmer-card').length;
                     if (remaining === 0) {
                         location.reload();

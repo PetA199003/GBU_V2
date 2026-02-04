@@ -29,7 +29,7 @@ if (!$unterweisung) {
     die('Unterweisung nicht gefunden');
 }
 
-// Ausgewaehlte Bausteine laden
+// Ausgewählte Bausteine laden
 $bausteine = $db->fetchAll("
     SELECT ub.*, b.kategorie, b.titel, b.inhalt, b.bild_url
     FROM unterweisung_bausteine ub
@@ -101,10 +101,10 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
     </style>
 </head>
 <body>
-    <a href="javascript:history.back()" class="back-btn no-print">← Zurueck</a>
+    <a href="javascript:history.back()" class="back-btn no-print">← Zurück</a>
     <button class="print-btn no-print" onclick="window.print()">Drucken / PDF</button>
 
-    <h1>Regeln fuer Arbeiten bei Produktionen und Veranstaltungen</h1>
+    <h1>Regeln für Arbeiten bei Produktionen und Veranstaltungen</h1>
 
     <div class="header-info">
         <table>
@@ -211,26 +211,26 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
     </style>
 </head>
 <body>
-    <a href="javascript:history.back()" class="back-btn no-print">← Zurueck</a>
+    <a href="javascript:history.back()" class="back-btn no-print">← Zurück</a>
     <button class="print-btn no-print" onclick="window.print()">Drucken / PDF</button>
 
-    <h1>Bestaetigung der Unterweisung</h1>
+    <h1>Bestätigung der Unterweisung</h1>
     <div class="subtitle">
-        nach § 4 der Unfallverhuetungsvorschrift<br>
-        "Grundsaetze der Praevention" DGUV Vorschrift 1 / VUV
+        nach § 4 der Unfallverhütungsvorschrift<br>
+        "Grundsätze der Prävention" DGUV Vorschrift 1 / VUV
     </div>
 
     <div class="header-info">
         <div class="signature-box">
             <?php if (!empty($unterweisung['durchfuehrer_unterschrift'])): ?>
-            <img src="<?= htmlspecialchars($unterweisung['durchfuehrer_unterschrift']) ?>" alt="Unterschrift Durchfuehrer">
+            <img src="<?= htmlspecialchars($unterweisung['durchfuehrer_unterschrift']) ?>" alt="Unterschrift Durchführer">
             <?php endif; ?>
         </div>
         <div class="signature-label">Unterschrift</div>
 
         <table>
             <tr>
-                <td class="label">Unterweisung durchgefuert von:</td>
+                <td class="label">Unterweisung durchgeführt von:</td>
                 <td class="value"><?= htmlspecialchars($unterweisung['durchgefuehrt_von'] ?? '') ?></td>
             </tr>
             <tr>
@@ -256,11 +256,11 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
     </div>
 
     <p class="info-text">
-        Die Unterweisung wurde basierend auf der erstellten Gefaehrdungsbeurteilung und der aktuellen Gesetzeslage durchgefuehrt.
+        Die Unterweisung wurde basierend auf der erstellten Gefährdungsbeurteilung und der aktuellen Gesetzeslage durchgeführt.
     </p>
 
     <p class="confirm-text">
-        Mit meiner Unterschrift bestaetige ich, dass ich an der Unterweisung teilgenommen und den Inhalt verstanden habe.
+        Mit meiner Unterschrift bestätige ich, dass ich an der Unterweisung teilgenommen und den Inhalt verstanden habe.
     </p>
 
     <table class="teilnehmer">

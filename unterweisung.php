@@ -26,7 +26,7 @@ if (!$projekt) {
     redirect('projekte.php');
 }
 
-// Berechtigung pruefen
+// Berechtigung prüfen
 if (!$isAdmin) {
     $access = $db->fetchOne(
         "SELECT berechtigung FROM benutzer_projekte WHERE benutzer_id = ? AND projekt_id = ?",
@@ -89,14 +89,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                     'sortierung' => 100,
                     'aktiv' => 1
                 ]);
-                setFlashMessage('success', 'Baustein hinzugefuegt');
+                setFlashMessage('success', 'Baustein hinzugefügt');
             }
             break;
 
         case 'delete_baustein':
             if ($isAdmin) {
                 $db->delete('unterweisungs_bausteine', 'id = ?', [$_POST['baustein_id']]);
-                setFlashMessage('success', 'Baustein geloescht');
+                setFlashMessage('success', 'Baustein gelöscht');
             }
             break;
 
@@ -108,10 +108,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                 // Bestehenden Baustein laden
                 $bestehendesBild = $db->fetchOne("SELECT bild_url FROM unterweisungs_bausteine WHERE id = ?", [$bausteinId]);
 
-                // Bild loeschen?
+                // Bild löschen?
                 if (isset($_POST['delete_bild']) && $_POST['delete_bild'] == '1') {
                     $bildUrl = null;
-                    // Altes Bild physisch loeschen (optional)
+                    // Altes Bild physisch löschen (optional)
                     if ($bestehendesBild['bild_url']) {
                         $oldFile = __DIR__ . str_replace(BASE_URL, '', $bestehendesBild['bild_url']);
                         if (file_exists($oldFile)) {
@@ -147,9 +147,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             break;
 
         case 'update_settings':
-            // Pruefen ob bereits unterschrieben - dann nur Admin darf aendern
+            // Prüfen ob bereits unterschrieben - dann nur Admin darf ändern
             if ($unterweisung['durchfuehrer_unterschrift'] && !$isAdmin) {
-                setFlashMessage('error', 'Nach Unterschrift kann nur ein Admin die Daten aendern');
+                setFlashMessage('error', 'Nach Unterschrift kann nur ein Admin die Daten ändern');
                 break;
             }
             $db->update('projekt_unterweisungen', [
@@ -161,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             break;
 
         case 'sign_durchfuehrer':
-            // Durchfuehrer unterschreibt
+            // Durchführer unterschreibt
             $signatur = $_POST['signatur'] ?? null;
             if ($signatur) {
                 $db->update('projekt_unterweisungen', [
@@ -173,18 +173,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             break;
 
         case 'delete_durchfuehrer_unterschrift':
-            // Nur Admin darf Durchfuehrer-Unterschrift loeschen
+            // Nur Admin darf Durchführer-Unterschrift löschen
             if ($isAdmin) {
                 $db->update('projekt_unterweisungen', [
                     'durchfuehrer_unterschrift' => null,
                     'durchfuehrer_unterschrieben_am' => null
                 ], 'id = :id', ['id' => $unterweisungId]);
-                setFlashMessage('success', 'Unterschrift geloescht');
+                setFlashMessage('success', 'Unterschrift gelöscht');
             }
             break;
 
         case 'save_bausteine':
-            // Alle alten Bausteine loeschen
+            // Alle alten Bausteine löschen
             $db->delete('unterweisung_bausteine', 'unterweisung_id = ?', [$unterweisungId]);
 
             // Neue Bausteine speichern
@@ -207,7 +207,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                 'nachname' => $_POST['nachname'] ?? '',
                 'firma' => $_POST['firma'] ?? null
             ]);
-            setFlashMessage('success', 'Teilnehmer hinzugefuegt');
+            setFlashMessage('success', 'Teilnehmer hinzugefügt');
             break;
 
         case 'delete_teilnehmer':
@@ -237,7 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             break;
 
         case 'delete_unterschrift':
-            // Bearbeiter und Admin duerfen Unterschriften loeschen
+            // Bearbeiter und Admin dürfen Unterschriften löschen
             if ($canEdit) {
                 $db->update('unterweisung_teilnehmer', [
                     'unterschrift' => null,
@@ -246,12 +246,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                     'id' => $_POST['teilnehmer_id'],
                     'uid' => $unterweisungId
                 ]);
-                setFlashMessage('success', 'Unterschrift geloescht');
+                setFlashMessage('success', 'Unterschrift gelöscht');
             }
             break;
 
         case 'add_projekt_baustein':
-            // Bearbeiter und Admin koennen projekt-spezifische Bausteine hinzufuegen
+            // Bearbeiter und Admin können projekt-spezifische Bausteine hinzufügen
             $bildUrl = null;
             if (isset($_FILES['bild']) && $_FILES['bild']['error'] === UPLOAD_ERR_OK) {
                 $uploadDir = __DIR__ . '/uploads/piktogramme/';
@@ -265,7 +265,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                 }
             }
 
-            // Baustein als projekt-spezifisch speichern
+            // Baustein als projektspezifisch speichern
             $newBausteinId = $db->insert('unterweisungs_bausteine', [
                 'kategorie' => 'Projektspezifisch',
                 'titel' => $_POST['titel'] ?? '',
@@ -273,10 +273,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                 'bild_url' => $bildUrl,
                 'sortierung' => 200,
                 'aktiv' => 1,
-                'projekt_id' => $projektId  // Nur fuer dieses Projekt
+                'projekt_id' => $projektId  // Nur für dieses Projekt
             ]);
 
-            // Direkt zur Unterweisung hinzufuegen
+            // Direkt zur Unterweisung hinzufügen
             $maxSort = $db->fetchOne("SELECT MAX(sortierung) as max FROM unterweisung_bausteine WHERE unterweisung_id = ?", [$unterweisungId]);
             $db->insert('unterweisung_bausteine', [
                 'unterweisung_id' => $unterweisungId,
@@ -284,7 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                 'sortierung' => ($maxSort['max'] ?? 0) + 1
             ]);
 
-            setFlashMessage('success', 'Projektspezifischer Inhalt hinzugefuegt');
+            setFlashMessage('success', 'Projektspezifischer Inhalt hinzugefügt');
             break;
 
         case 'import_csv':
@@ -294,7 +294,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                 $firstRow = true;
 
                 while (($data = fgetcsv($handle, 1000, ';')) !== false) {
-                    // Erste Zeile ueberspringen wenn Header
+                    // Erste Zeile überspringen wenn Header
                     if ($firstRow && (stripos($data[0], 'name') !== false || stripos($data[0], 'vorname') !== false)) {
                         $firstRow = false;
                         continue;
@@ -341,7 +341,7 @@ foreach ($alleBausteine as $b) {
     $bausteineNachKategorie[$b['kategorie']][] = $b;
 }
 
-// Ausgewaehlte Bausteine laden
+// Ausgewählte Bausteine laden
 $ausgewaehlteBausteine = $db->fetchAll("
     SELECT baustein_id FROM unterweisung_bausteine
     WHERE unterweisung_id = ?
@@ -356,7 +356,7 @@ $teilnehmer = $db->fetchAll("
     ORDER BY nachname, vorname
 ", [$unterweisungId]);
 
-// Aktueller Benutzer (fuer "Durchgefuehrt von")
+// Aktueller Benutzer (für "Durchgeführt von")
 $aktuellerBenutzer = $db->fetchOne("SELECT vorname, nachname FROM benutzer WHERE id = ?", [$userId]);
 $aktuellerBenutzerName = $aktuellerBenutzer ? $aktuellerBenutzer['vorname'] . ' ' . $aktuellerBenutzer['nachname'] : '';
 
@@ -376,7 +376,7 @@ require_once __DIR__ . '/templates/header.php';
         </div>
         <div class="d-flex gap-2">
             <a href="<?= BASE_URL ?>/projekt.php?id=<?= $projektId ?>" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-2"></i>Zurueck zum Projekt
+                <i class="bi bi-arrow-left me-2"></i>Zurück zum Projekt
             </a>
             <a href="<?= BASE_URL ?>/api/export_unterweisung.php?id=<?= $unterweisungId ?>&type=unterweisung" class="btn btn-success" target="_blank">
                 <i class="bi bi-file-pdf me-2"></i>Unterweisung drucken
@@ -406,14 +406,14 @@ require_once __DIR__ . '/templates/header.php';
                     <?php if ($settingsLocked): ?>
                     <div class="alert alert-info small mb-3">
                         <i class="bi bi-lock me-1"></i>
-                        Die Einstellungen sind nach der Unterschrift gesperrt. Nur ein Admin kann sie aendern.
+                        Die Einstellungen sind nach der Unterschrift gesperrt. Nur ein Admin kann sie ändern.
                     </div>
                     <?php endif; ?>
                     <form method="POST">
                         <input type="hidden" name="action" value="update_settings">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Durchgefuehrt von</label>
+                                <label class="form-label">Durchgeführt von</label>
                                 <input type="text" class="form-control" name="durchgefuehrt_von"
                                        value="<?= sanitize($unterweisung['durchgefuehrt_von'] ?? $aktuellerBenutzerName) ?>"
                                        <?= (!$canEdit || $settingsLocked) ? 'disabled' : '' ?>>
@@ -434,9 +434,9 @@ require_once __DIR__ . '/templates/header.php';
 
                     <hr class="my-3">
 
-                    <!-- Unterschrift des Durchfuehrenden -->
+                    <!-- Unterschrift des Durchführenden -->
                     <div class="mt-3">
-                        <label class="form-label fw-bold">Unterschrift des Durchfuehrenden</label>
+                        <label class="form-label fw-bold">Unterschrift des Durchführenden</label>
                         <?php if ($hatDurchfuehrerUnterschrift): ?>
                         <div class="border rounded p-3 bg-light">
                             <div class="d-flex justify-content-between align-items-start">
@@ -447,7 +447,7 @@ require_once __DIR__ . '/templates/header.php';
                                     </p>
                                 </div>
                                 <?php if ($isAdmin): ?>
-                                <form method="POST" onsubmit="return confirm('Unterschrift wirklich loeschen?')">
+                                <form method="POST" onsubmit="return confirm('Unterschrift wirklich löschen?')">
                                     <input type="hidden" name="action" value="delete_durchfuehrer_unterschrift">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">
                                         <i class="bi bi-trash"></i>
@@ -475,10 +475,10 @@ require_once __DIR__ . '/templates/header.php';
                 </div>
             </div>
 
-            <!-- Bausteine auswaehlen -->
+            <!-- Bausteine auswählen -->
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>Inhalte auswaehlen</h5>
+                    <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>Inhalte auswählen</h5>
                     <div class="d-flex gap-2">
                         <?php if ($canEdit): ?>
                         <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#addProjektBausteinModal">
@@ -533,7 +533,7 @@ require_once __DIR__ . '/templates/header.php';
                                                     onclick="editBaustein(<?= $b['id'] ?>, '<?= addslashes(sanitize($b['kategorie'])) ?>', '<?= addslashes(sanitize($b['titel'])) ?>', `<?= addslashes(sanitize($b['inhalt'])) ?>`, '<?= addslashes(sanitize($b['bild_url'] ?? '')) ?>')">
                                                 <i class="bi bi-pencil"></i>
                                             </button>
-                                            <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1" title="Loeschen"
+                                            <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1" title="Löschen"
                                                     onclick="deleteBaustein(<?= $b['id'] ?>)">
                                                 <i class="bi bi-trash"></i>
                                             </button>
@@ -560,10 +560,10 @@ require_once __DIR__ . '/templates/header.php';
                                 <i class="bi bi-save me-2"></i>Auswahl speichern
                             </button>
                             <button type="button" class="btn btn-outline-secondary ms-2" onclick="selectAll(true)">
-                                Alle auswaehlen
+                                Alle auswählen
                             </button>
                             <button type="button" class="btn btn-outline-secondary ms-2" onclick="selectAll(false)">
-                                Alle abwaehlen
+                                Alle abwählen
                             </button>
                         </div>
                         <?php endif; ?>
@@ -583,7 +583,7 @@ require_once __DIR__ . '/templates/header.php';
                 </div>
                 <div class="card-body">
                     <?php if ($canEdit): ?>
-                    <!-- Manuell hinzufuegen -->
+                    <!-- Manuell hinzufügen -->
                     <form method="POST" class="mb-3">
                         <input type="hidden" name="action" value="add_teilnehmer">
                         <div class="row g-2">
@@ -597,7 +597,7 @@ require_once __DIR__ . '/templates/header.php';
                                 <input type="text" class="form-control form-control-sm" name="firma" placeholder="Firma">
                             </div>
                             <div class="col-1">
-                                <button type="submit" class="btn btn-sm btn-success w-100" title="Hinzufuegen">
+                                <button type="submit" class="btn btn-sm btn-success w-100" title="Hinzufügen">
                                     <i class="bi bi-plus"></i>
                                 </button>
                             </div>
@@ -676,7 +676,7 @@ require_once __DIR__ . '/templates/header.php';
 
                     <?php if ($canEdit): ?>
                     <div class="mt-3">
-                        <form method="POST" onsubmit="return confirm('Alle Teilnehmer wirklich loeschen?')">
+                        <form method="POST" onsubmit="return confirm('Alle Teilnehmer wirklich löschen?')">
                             <input type="hidden" name="action" value="clear_teilnehmer">
                             <button type="submit" class="btn btn-sm btn-outline-danger">
                                 <i class="bi bi-trash me-1"></i>Alle entfernen
@@ -691,7 +691,7 @@ require_once __DIR__ . '/templates/header.php';
     </div>
 </div>
 
-<!-- Modal: Eigenen Baustein hinzufuegen -->
+<!-- Modal: Eigenen Baustein hinzufügen -->
 <?php if ($isAdmin): ?>
 <div class="modal fade" id="addBausteinModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -699,7 +699,7 @@ require_once __DIR__ . '/templates/header.php';
             <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="add_baustein">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Eigenen Inhalt hinzufuegen</h5>
+                    <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Eigenen Inhalt hinzufügen</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -725,12 +725,12 @@ require_once __DIR__ . '/templates/header.php';
                     <div class="mb-3">
                         <label class="form-label">Inhalt / Beschreibung *</label>
                         <textarea class="form-control" name="inhalt" rows="6" required placeholder="• Punkt 1&#10;• Punkt 2&#10;• Punkt 3"></textarea>
-                        <small class="text-muted">Fuer Aufzaehlungen verwenden Sie • am Zeilenanfang</small>
+                        <small class="text-muted">Für Aufzählungen verwenden Sie • am Zeilenanfang</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Piktogramm / Bild (optional)</label>
                         <input type="file" class="form-control" name="bild" accept="image/*">
-                        <small class="text-muted">Empfohlene Groesse: 100x100 Pixel, PNG oder JPG</small>
+                        <small class="text-muted">Empfohlene Größe: 100x100 Pixel, PNG oder JPG</small>
                     </div>
                     <div id="bildPreview" class="mb-3" style="display: none;">
                         <label class="form-label">Vorschau:</label><br>
@@ -740,7 +740,7 @@ require_once __DIR__ . '/templates/header.php';
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
                     <button type="submit" class="btn btn-success">
-                        <i class="bi bi-plus-lg me-2"></i>Hinzufuegen
+                        <i class="bi bi-plus-lg me-2"></i>Hinzufügen
                     </button>
                 </div>
             </form>
@@ -774,7 +774,7 @@ require_once __DIR__ . '/templates/header.php';
                     <div class="mb-3">
                         <label class="form-label">Inhalt / Beschreibung *</label>
                         <textarea class="form-control" name="inhalt" id="editInhalt" rows="6" required></textarea>
-                        <small class="text-muted">Fuer Aufzaehlungen verwenden Sie • am Zeilenanfang</small>
+                        <small class="text-muted">Für Aufzählungen verwenden Sie • am Zeilenanfang</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Aktuelles Piktogramm</label>
@@ -782,7 +782,7 @@ require_once __DIR__ . '/templates/header.php';
                         <div id="editDeleteBildDiv" class="form-check" style="display: none;">
                             <input class="form-check-input" type="checkbox" name="delete_bild" value="1" id="editDeleteBild">
                             <label class="form-check-label text-danger" for="editDeleteBild">
-                                <i class="bi bi-trash me-1"></i>Piktogramm entfernen
+                                <i class="bi bi-trash me-1"></i>Piktogramm löschen
                             </label>
                         </div>
                     </div>
@@ -804,7 +804,7 @@ require_once __DIR__ . '/templates/header.php';
 </div>
 <?php endif; ?>
 
-<!-- Modal: Durchfuehrer Unterschrift -->
+<!-- Modal: Durchführer Unterschrift -->
 <?php if ($canEdit && !$hatDurchfuehrerUnterschrift): ?>
 <div class="modal fade" id="signDurchfuehrerModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -815,18 +815,18 @@ require_once __DIR__ . '/templates/header.php';
             </div>
             <div class="modal-body">
                 <p class="mb-3">
-                    <strong>Durchgefuehrt von:</strong> <?= sanitize($unterweisung['durchgefuehrt_von'] ?? $aktuellerBenutzerName) ?><br>
+                    <strong>Durchgeführt von:</strong> <?= sanitize($unterweisung['durchgefuehrt_von'] ?? $aktuellerBenutzerName) ?><br>
                     <strong>Datum:</strong> <?= $unterweisung['durchgefuehrt_am'] ? date('d.m.Y', strtotime($unterweisung['durchgefuehrt_am'])) : date('d.m.Y') ?>
                 </p>
                 <div class="alert alert-warning small">
                     <i class="bi bi-exclamation-triangle me-1"></i>
-                    Nach der Unterschrift koennen Name und Datum nicht mehr geaendert werden (nur durch Admin).
+                    Nach der Unterschrift können Name und Datum nicht mehr geändert werden (nur durch Admin).
                 </div>
                 <label class="form-label">Ihre Unterschrift:</label>
                 <canvas id="durchfuehrerCanvas" style="width: 100%; height: 150px; border: 2px dashed #ccc; border-radius: 8px; cursor: crosshair; touch-action: none;"></canvas>
                 <div class="mt-2">
                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearDurchfuehrerSignature()">
-                        <i class="bi bi-eraser me-1"></i>Loeschen
+                        <i class="bi bi-eraser me-1"></i>Löschen
                     </button>
                 </div>
             </div>
@@ -841,7 +841,7 @@ require_once __DIR__ . '/templates/header.php';
 </div>
 <?php endif; ?>
 
-<!-- Modal: Projektspezifischen Baustein hinzufuegen -->
+<!-- Modal: Projektspezifischen Baustein hinzufügen -->
 <?php if ($canEdit): ?>
 <div class="modal fade" id="addProjektBausteinModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -849,13 +849,13 @@ require_once __DIR__ . '/templates/header.php';
             <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="add_projekt_baustein">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Projektspezifischen Inhalt hinzufuegen</h5>
+                    <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Projektspezifischen Inhalt hinzufügen</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-info small">
                         <i class="bi bi-info-circle me-1"></i>
-                        Dieser Inhalt wird nur fuer dieses Projekt erstellt und ist nicht in anderen Projekten sichtbar.
+                        Dieser Inhalt wird nur für dieses Projekt erstellt und ist nicht in anderen Projekten sichtbar.
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Titel *</label>
@@ -864,18 +864,18 @@ require_once __DIR__ . '/templates/header.php';
                     <div class="mb-3">
                         <label class="form-label">Inhalt / Beschreibung *</label>
                         <textarea class="form-control" name="inhalt" rows="6" required placeholder="• Punkt 1&#10;• Punkt 2&#10;• Punkt 3"></textarea>
-                        <small class="text-muted">Fuer Aufzaehlungen verwenden Sie • am Zeilenanfang</small>
+                        <small class="text-muted">Für Aufzählungen verwenden Sie • am Zeilenanfang</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Piktogramm / Bild (optional)</label>
                         <input type="file" class="form-control" name="bild" accept="image/*">
-                        <small class="text-muted">Empfohlene Groesse: 100x100 Pixel, PNG oder JPG</small>
+                        <small class="text-muted">Empfohlene Größe: 100x100 Pixel, PNG oder JPG</small>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
                     <button type="submit" class="btn btn-success">
-                        <i class="bi bi-plus-lg me-2"></i>Hinzufuegen
+                        <i class="bi bi-plus-lg me-2"></i>Hinzufügen
                     </button>
                 </div>
             </form>
@@ -922,7 +922,7 @@ require_once __DIR__ . '/templates/header.php';
 </div>
 <?php endif; ?>
 
-<!-- Verstecktes Formular fuer Baustein-Loeschung (ausserhalb des Hauptformulars) -->
+<!-- Verstecktes Formular für Baustein-Löschung (außerhalb des Hauptformulars) -->
 <?php if ($isAdmin): ?>
 <form method="POST" id="deleteBausteinForm" style="display: none;">
     <input type="hidden" name="action" value="delete_baustein">
@@ -947,22 +947,22 @@ require_once __DIR__ . '/templates/header.php';
             </div>
             <div class="modal-footer">
                 <?php if ($canEdit): ?>
-                <form method="POST" id="deleteSignatureForm" onsubmit="return confirm('Unterschrift wirklich loeschen?')">
+                <form method="POST" id="deleteSignatureForm" onsubmit="return confirm('Unterschrift wirklich löschen?')">
                     <input type="hidden" name="action" value="delete_unterschrift">
                     <input type="hidden" name="teilnehmer_id" id="sigTeilnehmerId">
                     <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash me-2"></i>Unterschrift loeschen
+                        <i class="bi bi-trash me-2"></i>Unterschrift löschen
                     </button>
                 </form>
                 <?php endif; ?>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schliessen</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-// Durchfuehrer-Unterschrift Canvas
+// Durchführer-Unterschrift Canvas
 let dfCanvas, dfCtx, dfIsDrawing = false, dfLastX = 0, dfLastY = 0;
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1061,7 +1061,7 @@ function clearDurchfuehrerSignature() {
 function saveDurchfuehrerSignature() {
     if (!dfCanvas || !dfCtx) return;
 
-    // Pruefen ob unterschrieben
+    // Prüfen ob unterschrieben
     const imageData = dfCtx.getImageData(0, 0, dfCanvas.width, dfCanvas.height);
     let hasSignature = false;
     for (let i = 0; i < imageData.data.length; i += 4) {
@@ -1098,7 +1098,7 @@ function showSignature(name, date, imageData, teilnehmerId) {
 }
 
 function deleteBaustein(bausteinId) {
-    if (confirm('Baustein wirklich loeschen?')) {
+    if (confirm('Baustein wirklich löschen?')) {
         document.getElementById('deleteBausteinId').value = bausteinId;
         document.getElementById('deleteBausteinForm').submit();
     }
@@ -1123,7 +1123,7 @@ function editBaustein(id, kategorie, titel, inhalt, bildUrl) {
     const deleteBildCheckbox = document.getElementById('editDeleteBild');
     const bildInput = document.getElementById('editBildInput');
 
-    // Checkbox zuruecksetzen
+    // Checkbox zurücksetzen
     deleteBildCheckbox.checked = false;
     bildInput.value = '';
 
@@ -1173,7 +1173,7 @@ if (kategorieSelect) {
         }
     });
 
-    // Bei Form-Submit: Wenn neue Kategorie, dann Wert uebernehmen
+    // Bei Form-Submit: Wenn neue Kategorie, dann Wert übernehmen
     document.querySelector('#addBausteinModal form')?.addEventListener('submit', function(e) {
         if (kategorieSelect.value === '__neu__' && neueKategorieInput.value) {
             kategorieSelect.innerHTML += `<option value="${neueKategorieInput.value}" selected>${neueKategorieInput.value}</option>`;
