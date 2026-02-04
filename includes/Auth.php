@@ -212,4 +212,21 @@ class Auth {
         $this->db->delete('benutzer', 'id = ?', [$id]);
         return ['success' => true];
     }
+
+    /**
+     * Passwort zurücksetzen (Admin)
+     */
+    public function resetPassword($userId, $newPassword) {
+        if (strlen($newPassword) < 6) {
+            return ['success' => false, 'error' => 'Das Passwort muss mindestens 6 Zeichen lang sein.'];
+        }
+
+        $this->db->update('benutzer',
+            ['passwort' => password_hash($newPassword, PASSWORD_DEFAULT)],
+            'id = :id',
+            ['id' => $userId]
+        );
+
+        return ['success' => true];
+    }
 }

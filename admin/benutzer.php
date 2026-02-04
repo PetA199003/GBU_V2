@@ -63,6 +63,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             break;
+
+        case 'update':
+            if ($userId) {
+                $updateData = [
+                    'vorname' => $_POST['vorname'] ?? '',
+                    'nachname' => $_POST['nachname'] ?? '',
+                    'email' => $_POST['email'] ?? '',
+                    'rolle' => (int)$_POST['rolle']
+                ];
+
+                $auth->updateUser($userId, $updateData);
+
+                // Neues Passwort setzen wenn angegeben
+                if (!empty($_POST['neues_passwort'])) {
+                    $result = $auth->resetPassword($userId, $_POST['neues_passwort']);
+                    if (!$result['success']) {
+                        setFlashMessage('error', $result['error']);
+                        break;
+                    }
+                }
+
+                setFlashMessage('success', 'Benutzer wurde aktualisiert.');
+            }
+            break;
     }
 
     redirect('admin/benutzer.php');
@@ -144,6 +168,10 @@ require_once __DIR__ . '/../templates/header.php';
                             <td>
                                 <?php if ($user['id'] != $_SESSION['user_id']): ?>
                                 <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-primary" title="Bearbeiten"
+                                            onclick="editBenutzer(<?= htmlspecialchars(json_encode($user)) ?>)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
                                     <form method="POST" class="d-inline">
                                         <input type="hidden" name="action" value="toggle_active">
                                         <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
@@ -226,5 +254,69 @@ require_once __DIR__ . '/../templates/header.php';
         </div>
     </div>
 </div>
+
+<!-- Modal: Benutzer bearbeiten -->
+<div class="modal fade" id="editBenutzerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="action" value="update">
+                <input type="hidden" name="user_id" id="edit_user_id">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Benutzer bearbeiten</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Vorname *</label>
+                            <input type="text" class="form-control" name="vorname" id="edit_vorname" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nachname *</label>
+                            <input type="text" class="form-control" name="nachname" id="edit_nachname" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">E-Mail *</label>
+                        <input type="email" class="form-control" name="email" id="edit_email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rolle *</label>
+                        <select class="form-select" name="rolle" id="edit_rolle" required>
+                            <option value="<?= ROLE_VIEWER ?>">Betrachter</option>
+                            <option value="<?= ROLE_EDITOR ?>">Bearbeiter</option>
+                            <option value="<?= ROLE_ADMIN ?>">Administrator</option>
+                        </select>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <label class="form-label">Neues Passwort</label>
+                        <input type="password" class="form-control" name="neues_passwort" id="edit_passwort" minlength="6">
+                        <small class="text-muted">Leer lassen um das Passwort nicht zu ändern. Mindestens 6 Zeichen.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function editBenutzer(user) {
+    document.getElementById('edit_user_id').value = user.id;
+    document.getElementById('edit_vorname').value = user.vorname;
+    document.getElementById('edit_nachname').value = user.nachname;
+    document.getElementById('edit_email').value = user.email;
+    document.getElementById('edit_rolle').value = user.rolle;
+    document.getElementById('edit_passwort').value = '';
+
+    new bootstrap.Modal(document.getElementById('editBenutzerModal')).show();
+}
+</script>
 
 <?php require_once __DIR__ . '/../templates/footer.php'; ?>
