@@ -75,10 +75,14 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
         body {
             background: linear-gradient(135deg, #1a1c2e 0%, #2d3748 100%);
             min-height: 100vh;
             color: white;
+            overflow-x: hidden;
         }
         .header {
             background: rgba(255,255,255,0.1);
@@ -111,48 +115,27 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             padding: 20px;
             margin-top: 20px;
         }
-        .signature-canvas {
+        #signatureCanvas {
+            display: block;
+            width: 100%;
+            height: 200px;
             border: 2px dashed #ccc;
             border-radius: 8px;
+            background: #fff;
             touch-action: none;
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-            cursor: crosshair;
-            /* iPad Pencil optimierung */
-            -webkit-tap-highlight-color: transparent;
         }
-        /* Verhindere Scrollen beim Unterschreiben */
-        body.signing-active {
-            overflow: hidden;
-            position: fixed;
-            width: 100%;
-        }
-        .signature-canvas.signing {
+        #signatureCanvas.signing {
             border-color: #0d6efd;
             border-style: solid;
-        }
-        /* iPad/Touch optimization */
-        .signature-area {
-            -webkit-overflow-scrolling: auto;
         }
         .btn-sign {
             font-size: 1.2rem;
             padding: 15px 40px;
         }
-        .status-badge {
-            font-size: 0.8rem;
-        }
         .progress-info {
             background: rgba(255,255,255,0.1);
             border-radius: 8px;
             padding: 10px 15px;
-        }
-        .signed-indicator {
-            color: #28a745;
-            font-size: 1.5rem;
         }
         .all-done {
             text-align: center;
@@ -214,7 +197,7 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
                 Unterschrift fuer: <span id="selectedName" class="text-primary"></span>
             </h5>
 
-            <canvas id="signatureCanvas" class="signature-canvas w-100" height="200"></canvas>
+            <canvas id="signatureCanvas"></canvas>
 
             <div class="d-flex justify-content-between align-items-center mt-3">
                 <button type="button" class="btn btn-outline-secondary" onclick="clearSignature()">
@@ -244,12 +227,6 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
         let lastX = 0, lastY = 0;
 
         document.addEventListener('DOMContentLoaded', function() {
-            canvas = document.getElementById('signatureCanvas');
-            if (canvas) {
-                ctx = canvas.getContext('2d');
-                setupCanvas();
-            }
-
             // Teilnehmer-Auswahl
             document.querySelectorAll('.teilnehmer-card').forEach(card => {
                 card.addEventListener('click', function() {
@@ -258,90 +235,46 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             });
         });
 
-        function setupCanvas() {
-            // Canvas-Groesse anpassen
-            const rect = canvas.getBoundingClientRect();
-            // Fuer Retina/HiDPI Displays
-            const dpr = window.devicePixelRatio || 1;
-            canvas.width = rect.width * dpr;
-            canvas.height = 200 * dpr;
-            canvas.style.width = rect.width + 'px';
-            canvas.style.height = '200px';
-            ctx.scale(dpr, dpr);
+        function initCanvas() {
+            canvas = document.getElementById('signatureCanvas');
+            if (!canvas) return;
 
+            ctx = canvas.getContext('2d');
+
+            // Canvas-Groesse setzen (wichtig: nach display: block)
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+
+            ctx.scale(dpr, dpr);
             ctx.strokeStyle = '#000';
             ctx.lineWidth = 2;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, rect.width, rect.height);
 
-            // Pointer Events (beste Unterstuetzung fuer iPad Pencil)
-            if (window.PointerEvent) {
-                canvas.addEventListener('pointerdown', handlePointerDown, { passive: false });
-                canvas.addEventListener('pointermove', handlePointerMove, { passive: false });
-                canvas.addEventListener('pointerup', handlePointerUp);
-                canvas.addEventListener('pointerleave', handlePointerUp);
-                canvas.addEventListener('pointercancel', handlePointerUp);
-            } else {
-                // Fallback: Touch-Events
-                canvas.addEventListener('touchstart', handleStart, { passive: false });
-                canvas.addEventListener('touchmove', handleMove, { passive: false });
-                canvas.addEventListener('touchend', handleEnd);
+            // Event-Listener entfernen falls vorhanden
+            canvas.removeEventListener('touchstart', handleTouchStart);
+            canvas.removeEventListener('touchmove', handleTouchMove);
+            canvas.removeEventListener('touchend', handleTouchEnd);
+            canvas.removeEventListener('mousedown', handleMouseDown);
+            canvas.removeEventListener('mousemove', handleMouseMove);
+            canvas.removeEventListener('mouseup', handleMouseUp);
+            canvas.removeEventListener('mouseleave', handleMouseUp);
 
-                // Mouse-Events
-                canvas.addEventListener('mousedown', handleMouseDown);
-                canvas.addEventListener('mousemove', handleMouseMove);
-                canvas.addEventListener('mouseup', handleMouseUp);
-                canvas.addEventListener('mouseout', handleMouseUp);
-            }
-        }
+            // Touch-Events (fuer iPad/Pencil)
+            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
 
-        function handlePointerDown(e) {
-            e.preventDefault();
-            // Nur Stift und Touch, nicht Maus (ausser auf Desktop)
-            if (e.pointerType === 'mouse' && !window.matchMedia('(pointer: fine)').matches) {
-                return;
-            }
-            isDrawing = true;
-            canvas.classList.add('signing');
-            document.body.classList.add('signing-active');
-            canvas.setPointerCapture(e.pointerId);
-            const pos = getPointerPos(e);
-            lastX = pos.x;
-            lastY = pos.y;
-            // Druckempfindlichkeit fuer Apple Pencil
-            if (e.pressure && e.pressure > 0) {
-                ctx.lineWidth = Math.max(1, e.pressure * 4);
-            }
-        }
-
-        function handlePointerMove(e) {
-            if (!isDrawing) return;
-            e.preventDefault();
-            const pos = getPointerPos(e);
-            // Druckempfindlichkeit
-            if (e.pressure && e.pressure > 0) {
-                ctx.lineWidth = Math.max(1, e.pressure * 4);
-            }
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(pos.x, pos.y);
-            ctx.stroke();
-            lastX = pos.x;
-            lastY = pos.y;
-        }
-
-        function handlePointerUp(e) {
-            isDrawing = false;
-            document.body.classList.remove('signing-active');
-            ctx.lineWidth = 2; // Zuruecksetzen
-        }
-
-        function getPointerPos(e) {
-            const rect = canvas.getBoundingClientRect();
-            return {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top
-            };
+            // Mouse-Events (fuer Desktop)
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('mouseleave', handleMouseUp);
         }
 
         function selectTeilnehmer(id, name) {
@@ -349,7 +282,11 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             document.getElementById('selectedName').textContent = name;
             document.getElementById('signatureSection').style.display = 'block';
             document.getElementById('teilnehmerList').style.display = 'none';
-            clearSignature();
+
+            // Canvas initialisieren NACHDEM es sichtbar ist
+            setTimeout(function() {
+                initCanvas();
+            }, 50);
 
             // Scroll zur Signatur
             document.getElementById('signatureSection').scrollIntoView({ behavior: 'smooth' });
@@ -361,60 +298,73 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             document.getElementById('teilnehmerList').style.display = 'block';
         }
 
-        function getPos(e) {
+        function getTouchPos(e) {
             const rect = canvas.getBoundingClientRect();
-            if (e.touches) {
-                return {
-                    x: e.touches[0].clientX - rect.left,
-                    y: e.touches[0].clientY - rect.top
-                };
-            }
+            const touch = e.touches[0] || e.changedTouches[0];
+            return {
+                x: touch.clientX - rect.left,
+                y: touch.clientY - rect.top
+            };
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
             return {
                 x: e.clientX - rect.left,
                 y: e.clientY - rect.top
             };
         }
 
-        function handleStart(e) {
+        function handleTouchStart(e) {
             e.preventDefault();
             isDrawing = true;
             canvas.classList.add('signing');
-            const pos = getPos(e);
+            const pos = getTouchPos(e);
             lastX = pos.x;
             lastY = pos.y;
+
+            // Punkt zeichnen bei einzelnem Tap
+            ctx.beginPath();
+            ctx.arc(lastX, lastY, 1, 0, Math.PI * 2);
+            ctx.fill();
         }
 
-        function handleMove(e) {
+        function handleTouchMove(e) {
             if (!isDrawing) return;
             e.preventDefault();
-            const pos = getPos(e);
+            const pos = getTouchPos(e);
+
             ctx.beginPath();
             ctx.moveTo(lastX, lastY);
             ctx.lineTo(pos.x, pos.y);
             ctx.stroke();
+
             lastX = pos.x;
             lastY = pos.y;
         }
 
-        function handleEnd() {
+        function handleTouchEnd(e) {
+            e.preventDefault();
             isDrawing = false;
         }
 
         function handleMouseDown(e) {
             isDrawing = true;
             canvas.classList.add('signing');
-            const pos = getPos(e);
+            const pos = getMousePos(e);
             lastX = pos.x;
             lastY = pos.y;
         }
 
         function handleMouseMove(e) {
             if (!isDrawing) return;
-            const pos = getPos(e);
+            const pos = getMousePos(e);
+
             ctx.beginPath();
             ctx.moveTo(lastX, lastY);
             ctx.lineTo(pos.x, pos.y);
             ctx.stroke();
+
             lastX = pos.x;
             lastY = pos.y;
         }
@@ -424,8 +374,11 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
         }
 
         function clearSignature() {
-            const dpr = window.devicePixelRatio || 1;
-            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+            if (!canvas || !ctx) return;
+            const rect = canvas.getBoundingClientRect();
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, rect.width, rect.height);
+            ctx.strokeStyle = '#000';
             canvas.classList.remove('signing');
         }
 
@@ -439,8 +392,11 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
             let hasSignature = false;
-            for (let i = 3; i < data.length; i += 4) {
-                if (data[i] > 0) {
+
+            // Suche nach nicht-weissen Pixeln
+            for (let i = 0; i < data.length; i += 4) {
+                // Wenn Pixel nicht weiss ist (R, G, B < 255)
+                if (data[i] < 250 || data[i+1] < 250 || data[i+2] < 250) {
                     hasSignature = true;
                     break;
                 }

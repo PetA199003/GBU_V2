@@ -100,6 +100,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             }
             break;
 
+        case 'edit_baustein':
+            if ($isAdmin) {
+                $bildUrl = null;
+                $bausteinId = $_POST['baustein_id'] ?? null;
+
+                // Bestehenden Baustein laden
+                $bestehendesBild = $db->fetchOne("SELECT bild_url FROM unterweisungs_bausteine WHERE id = ?", [$bausteinId]);
+
+                // Neues Bild hochladen
+                if (isset($_FILES['bild']) && $_FILES['bild']['error'] === UPLOAD_ERR_OK) {
+                    $uploadDir = __DIR__ . '/uploads/piktogramme/';
+                    if (!is_dir($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+                    $ext = pathinfo($_FILES['bild']['name'], PATHINFO_EXTENSION);
+                    $filename = 'piktogramm_' . time() . '_' . uniqid() . '.' . $ext;
+                    if (move_uploaded_file($_FILES['bild']['tmp_name'], $uploadDir . $filename)) {
+                        $bildUrl = BASE_URL . '/uploads/piktogramme/' . $filename;
+                    }
+                } else {
+                    // Bestehendes Bild behalten
+                    $bildUrl = $bestehendesBild['bild_url'] ?? null;
+                }
+
+                $db->update('unterweisungs_bausteine', [
+                    'kategorie' => $_POST['kategorie'] ?? 'Sonstiges',
+                    'titel' => $_POST['titel'] ?? '',
+                    'inhalt' => $_POST['inhalt'] ?? '',
+                    'bild_url' => $bildUrl
+                ], 'id = :id', ['id' => $bausteinId]);
+
+                setFlashMessage('success', 'Baustein aktualisiert');
+            }
+            break;
+
         case 'update_settings':
             $db->update('projekt_unterweisungen', [
                 'titel' => $_POST['titel'] ?? 'Sicherheitsunterweisung',
@@ -318,6 +353,10 @@ require_once __DIR__ . '/templates/header.php';
                                                 <i class="bi bi-eye"></i>
                                             </button>
                                             <?php if ($isAdmin): ?>
+                                            <button type="button" class="btn btn-sm btn-link text-primary p-0 ms-1" title="Bearbeiten"
+                                                    onclick="editBaustein(<?= $b['id'] ?>, '<?= addslashes(sanitize($b['kategorie'])) ?>', '<?= addslashes(sanitize($b['titel'])) ?>', `<?= addslashes(sanitize($b['inhalt'])) ?>`, '<?= addslashes(sanitize($b['bild_url'] ?? '')) ?>')">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
                                             <form method="POST" class="d-inline ms-1" onsubmit="return confirm('Baustein wirklich loeschen?')">
                                                 <input type="hidden" name="action" value="delete_baustein">
                                                 <input type="hidden" name="baustein_id" value="<?= $b['id'] ?>">
@@ -525,9 +564,74 @@ require_once __DIR__ . '/templates/header.php';
         </div>
     </div>
 </div>
+<!-- Modal: Baustein bearbeiten -->
+<div class="modal fade" id="editBausteinModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="edit_baustein">
+                <input type="hidden" name="baustein_id" id="editBausteinId">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Baustein bearbeiten</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Kategorie</label>
+                        <select class="form-select" name="kategorie" id="editKategorieSelect">
+                            <?php foreach ($kategorien as $kat): ?>
+                            <option value="<?= sanitize($kat) ?>"><?= sanitize($kat) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Titel *</label>
+                        <input type="text" class="form-control" name="titel" id="editTitel" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Inhalt / Beschreibung *</label>
+                        <textarea class="form-control" name="inhalt" id="editInhalt" rows="6" required></textarea>
+                        <small class="text-muted">Fuer Aufzaehlungen verwenden Sie • am Zeilenanfang</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Aktuelles Piktogramm</label>
+                        <div id="editCurrentBild" class="mb-2"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Neues Piktogramm (optional)</label>
+                        <input type="file" class="form-control" name="bild" accept="image/*">
+                        <small class="text-muted">Leer lassen um bestehendes Bild zu behalten</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>Speichern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 <?php endif; ?>
 
 <script>
+function editBaustein(id, kategorie, titel, inhalt, bildUrl) {
+    document.getElementById('editBausteinId').value = id;
+    document.getElementById('editKategorieSelect').value = kategorie;
+    document.getElementById('editTitel').value = titel;
+    document.getElementById('editInhalt').value = inhalt;
+
+    const currentBildDiv = document.getElementById('editCurrentBild');
+    if (bildUrl) {
+        currentBildDiv.innerHTML = `<img src="${bildUrl}" alt="Aktuelles Piktogramm" style="max-width: 80px; max-height: 80px; border: 1px solid #ddd; padding: 5px;">`;
+    } else {
+        currentBildDiv.innerHTML = '<span class="text-muted">Kein Bild vorhanden</span>';
+    }
+
+    new bootstrap.Modal(document.getElementById('editBausteinModal')).show();
+}
+
 function selectAll(checked) {
     document.querySelectorAll('.baustein-check').forEach(cb => {
         cb.checked = checked;
