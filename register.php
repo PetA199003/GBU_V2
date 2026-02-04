@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ]);
 
     if ($result['success']) {
-        setFlashMessage('success', 'Registrierung erfolgreich! Sie können sich jetzt anmelden.');
+        setFlashMessage('success', 'Registrierung erfolgreich! Ein Administrator muss Ihr Konto erst freischalten, bevor Sie sich anmelden können.');
         redirect('login.php');
     } else {
         $errors = $result['errors'];
@@ -127,9 +127,11 @@ $pageTitle = 'Registrieren';
                                id="passwort"
                                name="passwort"
                                required
-                               minlength="6">
+                               minlength="6"
+                               pattern=".*[^a-zA-Z0-9].*"
+                               title="Mindestens 6 Zeichen und ein Sonderzeichen">
                     </div>
-                    <div class="form-text">Mindestens 6 Zeichen</div>
+                    <div class="form-text">Mindestens 6 Zeichen und ein Sonderzeichen (z.B. !@#$%)</div>
                 </div>
 
                 <div class="mb-4">
@@ -142,6 +144,11 @@ $pageTitle = 'Registrieren';
                                name="passwort_confirm"
                                required>
                     </div>
+                </div>
+
+                <div class="alert alert-info small mb-3">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Nach der Registrierung muss ein Administrator Ihr Konto freischalten, bevor Sie sich anmelden können.
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100 mb-3">

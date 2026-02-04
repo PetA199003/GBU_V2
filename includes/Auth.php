@@ -30,6 +30,8 @@ class Auth {
 
         if (empty($data['passwort']) || strlen($data['passwort']) < 6) {
             $errors[] = 'Passwort muss mindestens 6 Zeichen lang sein.';
+        } elseif (!preg_match('/[^a-zA-Z0-9]/', $data['passwort'])) {
+            $errors[] = 'Passwort muss mindestens ein Sonderzeichen enthalten.';
         }
 
         if ($data['passwort'] !== $data['passwort_confirm']) {
@@ -66,7 +68,7 @@ class Auth {
             return ['success' => false, 'errors' => $errors];
         }
 
-        // Benutzer erstellen
+        // Benutzer erstellen (inaktiv bis Admin freischaltet)
         $userId = $this->db->insert('benutzer', [
             'benutzername' => $data['benutzername'],
             'email' => $data['email'],
@@ -74,7 +76,7 @@ class Auth {
             'vorname' => $data['vorname'],
             'nachname' => $data['nachname'],
             'rolle' => ROLE_VIEWER, // Neue Benutzer sind zunächst Betrachter
-            'aktiv' => 1
+            'aktiv' => 0 // Inaktiv bis Admin freischaltet
         ]);
 
         return ['success' => true, 'user_id' => $userId];
@@ -84,13 +86,19 @@ class Auth {
      * Benutzer anmelden
      */
     public function login($benutzername, $passwort) {
+        // Erst prüfen ob Benutzer existiert (auch inaktive)
         $user = $this->db->fetchOne(
-            "SELECT * FROM benutzer WHERE (benutzername = ? OR email = ?) AND aktiv = 1",
+            "SELECT * FROM benutzer WHERE (benutzername = ? OR email = ?)",
             [$benutzername, $benutzername]
         );
 
         if (!$user) {
             return ['success' => false, 'error' => 'Ungültiger Benutzername oder Passwort.'];
+        }
+
+        // Prüfen ob Benutzer aktiv ist
+        if (!$user['aktiv']) {
+            return ['success' => false, 'error' => 'Ihr Konto wurde noch nicht freigeschaltet. Bitte wenden Sie sich an einen Administrator.'];
         }
 
         if (!password_verify($passwort, $user['passwort'])) {
@@ -139,6 +147,10 @@ class Auth {
 
         if (strlen($newPassword) < 6) {
             return ['success' => false, 'error' => 'Das neue Passwort muss mindestens 6 Zeichen lang sein.'];
+        }
+
+        if (!preg_match('/[^a-zA-Z0-9]/', $newPassword)) {
+            return ['success' => false, 'error' => 'Das neue Passwort muss mindestens ein Sonderzeichen enthalten.'];
         }
 
         $this->db->update('benutzer',
@@ -219,6 +231,10 @@ class Auth {
     public function resetPassword($userId, $newPassword) {
         if (strlen($newPassword) < 6) {
             return ['success' => false, 'error' => 'Das Passwort muss mindestens 6 Zeichen lang sein.'];
+        }
+
+        if (!preg_match('/[^a-zA-Z0-9]/', $newPassword)) {
+            return ['success' => false, 'error' => 'Das Passwort muss mindestens ein Sonderzeichen enthalten.'];
         }
 
         $this->db->update('benutzer',
