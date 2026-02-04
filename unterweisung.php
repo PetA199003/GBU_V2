@@ -108,8 +108,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                 // Bestehenden Baustein laden
                 $bestehendesBild = $db->fetchOne("SELECT bild_url FROM unterweisungs_bausteine WHERE id = ?", [$bausteinId]);
 
+                // Bild loeschen?
+                if (isset($_POST['delete_bild']) && $_POST['delete_bild'] == '1') {
+                    $bildUrl = null;
+                    // Altes Bild physisch loeschen (optional)
+                    if ($bestehendesBild['bild_url']) {
+                        $oldFile = __DIR__ . str_replace(BASE_URL, '', $bestehendesBild['bild_url']);
+                        if (file_exists($oldFile)) {
+                            @unlink($oldFile);
+                        }
+                    }
+                }
                 // Neues Bild hochladen
-                if (isset($_FILES['bild']) && $_FILES['bild']['error'] === UPLOAD_ERR_OK) {
+                elseif (isset($_FILES['bild']) && $_FILES['bild']['error'] === UPLOAD_ERR_OK) {
                     $uploadDir = __DIR__ . '/uploads/piktogramme/';
                     if (!is_dir($uploadDir)) {
                         mkdir($uploadDir, 0755, true);
@@ -295,9 +306,9 @@ $teilnehmer = $db->fetchAll("
     ORDER BY nachname, vorname
 ", [$unterweisungId]);
 
-// Ersteller
-$ersteller = $db->fetchOne("SELECT vorname, nachname FROM benutzer WHERE id = ?", [$projekt['erstellt_von']]);
-$erstellerName = $ersteller ? $ersteller['vorname'] . ' ' . $ersteller['nachname'] : '';
+// Aktueller Benutzer (fuer "Durchgefuehrt von")
+$aktuellerBenutzer = $db->fetchOne("SELECT vorname, nachname FROM benutzer WHERE id = ?", [$userId]);
+$aktuellerBenutzerName = $aktuellerBenutzer ? $aktuellerBenutzer['vorname'] . ' ' . $aktuellerBenutzer['nachname'] : '';
 
 $pageTitle = 'Sicherheitsunterweisung - ' . $projekt['name'];
 require_once __DIR__ . '/templates/header.php';
@@ -341,7 +352,7 @@ require_once __DIR__ . '/templates/header.php';
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Durchgefuehrt von</label>
                                 <input type="text" class="form-control" name="durchgefuehrt_von"
-                                       value="<?= sanitize($unterweisung['durchgefuehrt_von'] ?? $erstellerName) ?>"
+                                       value="<?= sanitize($unterweisung['durchgefuehrt_von'] ?? $aktuellerBenutzerName) ?>"
                                        <?= !$canEdit ? 'disabled' : '' ?>>
                             </div>
                             <div class="col-md-6 mb-3">
@@ -531,7 +542,9 @@ require_once __DIR__ . '/templates/header.php';
                                             <i class="bi bi-check"></i> <?= date('d.m.', strtotime($t['unterschrieben_am'])) ?>
                                         </button>
                                         <?php else: ?>
-                                        <span class="badge bg-warning text-dark">Offen</span>
+                                        <a href="<?= BASE_URL ?>/signatur.php?id=<?= $unterweisungId ?>" class="badge bg-warning text-dark text-decoration-none" target="_blank" title="Jetzt unterschreiben">
+                                            <i class="bi bi-pen me-1"></i>Offen
+                                        </a>
                                         <?php endif; ?>
                                     </td>
                                     <?php if ($canEdit): ?>
@@ -656,10 +669,16 @@ require_once __DIR__ . '/templates/header.php';
                     <div class="mb-3">
                         <label class="form-label">Aktuelles Piktogramm</label>
                         <div id="editCurrentBild" class="mb-2"></div>
+                        <div id="editDeleteBildDiv" class="form-check" style="display: none;">
+                            <input class="form-check-input" type="checkbox" name="delete_bild" value="1" id="editDeleteBild">
+                            <label class="form-check-label text-danger" for="editDeleteBild">
+                                <i class="bi bi-trash me-1"></i>Piktogramm entfernen
+                            </label>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Neues Piktogramm (optional)</label>
-                        <input type="file" class="form-control" name="bild" accept="image/*">
+                        <input type="file" class="form-control" name="bild" accept="image/*" id="editBildInput">
                         <small class="text-muted">Leer lassen um bestehendes Bild zu behalten</small>
                     </div>
                 </div>
@@ -780,10 +799,20 @@ function editBaustein(id, kategorie, titel, inhalt, bildUrl) {
     document.getElementById('editInhalt').value = inhalt;
 
     const currentBildDiv = document.getElementById('editCurrentBild');
+    const deleteBildDiv = document.getElementById('editDeleteBildDiv');
+    const deleteBildCheckbox = document.getElementById('editDeleteBild');
+    const bildInput = document.getElementById('editBildInput');
+
+    // Checkbox zuruecksetzen
+    deleteBildCheckbox.checked = false;
+    bildInput.value = '';
+
     if (bildUrl) {
         currentBildDiv.innerHTML = `<img src="${bildUrl}" alt="Aktuelles Piktogramm" style="max-width: 80px; max-height: 80px; border: 1px solid #ddd; padding: 5px;">`;
+        deleteBildDiv.style.display = 'block';
     } else {
         currentBildDiv.innerHTML = '<span class="text-muted">Kein Bild vorhanden</span>';
+        deleteBildDiv.style.display = 'none';
     }
 
     new bootstrap.Modal(document.getElementById('editBausteinModal')).show();
