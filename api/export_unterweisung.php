@@ -236,6 +236,10 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
                 <td class="label">Veranstaltung:</td>
                 <td class="value"><?= htmlspecialchars($unterweisung['projekt_name']) ?></td>
             </tr>
+            <tr>
+                <td class="label">Ort:</td>
+                <td class="value"><?= htmlspecialchars($unterweisung['location']) ?></td>
+            </tr>
         </table>
     </div>
 
@@ -290,17 +294,6 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
             <?php endif; ?>
         </tbody>
     </table>
-
-    <?php
-    // Statistik anzeigen
-    $unterschrieben = count(array_filter($teilnehmer, fn($t) => $t['unterschrift']));
-    $offen = count($teilnehmer) - $unterschrieben;
-    ?>
-    <p style="margin-top: 15px; font-size: 9pt;">
-        <strong>Zusammenfassung:</strong> <?= count($teilnehmer) ?> Teilnehmer gesamt |
-        <span style="color: green;"><?= $unterschrieben ?> unterschrieben</span> |
-        <span style="color: orange;"><?= $offen ?> offen</span>
-    </p>
 
     <p class="page-number">Seite 1 von 1</p>
 </body>
