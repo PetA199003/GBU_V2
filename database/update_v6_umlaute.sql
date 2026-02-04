@@ -1,34 +1,27 @@
--- Update-Skript V6: Umlaute in Gefährdungsarten korrigieren
--- Führe dieses Skript in phpMyAdmin oder MySQL aus
+-- Update-Skript V6: Umlaute in Gefaehrdungsarten korrigieren
+-- WICHTIG: In phpMyAdmin unter "SQL" einfuegen und ausfuehren
+
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
 
 USE gefaehrdungsbeurteilung;
 
--- Charset der Datenbank und Tabellen sicherstellen
-ALTER DATABASE gefaehrdungsbeurteilung CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- Gefaehrdungsarten loeschen und neu einfuegen (sicherste Methode)
+TRUNCATE TABLE gefaehrdungsarten;
 
-ALTER TABLE gefaehrdungsarten CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+INSERT INTO gefaehrdungsarten (nummer, name, beschreibung, sortierung) VALUES
+(1, 'Mechanische Gefaehrdung', 'Gefaehrdungen durch bewegte Teile, Quetschen, Stossen, etc.', 1),
+(2, 'Sturzgefahr', 'Stolpern, Rutschen, Stuerzen', 2),
+(3, 'Elektrische Gefahren', 'Gefaehrdungen durch elektrischen Strom', 3),
+(4, 'Gesundheitsgefaehrdende Stoffe (chemische/biologische)', 'Gefahrstoffe, biologische Arbeitsstoffe', 4),
+(5, 'Brand- und Explosionsgefahren', 'Brandgefahr, Explosionsgefahr', 5),
+(6, 'Thermische Gefaehrdung', 'Hitze, Kaelte, heisse/kalte Oberflaechen', 6),
+(7, 'Spezielle physikalische Belastungen', 'Laerm, Vibration, Strahlung', 7),
+(8, 'Belastungen durch Arbeitsumgebungsbedingungen', 'Klima, Beleuchtung, Platzverhaeltnisse', 8),
+(9, 'Belastungen am Bewegungsapparat', 'Heben, Tragen, Zwangshaltungen', 9),
+(10, 'Psychische Belastungen', 'Stress, Zeitdruck, Ueberforderung', 10),
+(11, 'Unerwartete Aktionen', 'Unvorhergesehene Ereignisse, Fehlverhalten', 11),
+(12, 'Ausfall Energieversorgung', 'Stromausfall, Versorgungsunterbrechung', 12),
+(13, 'Arbeitsorganisation', 'Organisatorische Maengel, Kommunikation', 13);
 
--- Gefährdungsarten mit korrekten Umlauten aktualisieren
-UPDATE gefaehrdungsarten SET name = 'Mechanische Gefährdung', beschreibung = 'Gefährdungen durch bewegte Teile, Quetschen, Stoßen, etc.' WHERE nummer = 1;
-UPDATE gefaehrdungsarten SET name = 'Sturzgefahr', beschreibung = 'Stolpern, Rutschen, Stürzen' WHERE nummer = 2;
-UPDATE gefaehrdungsarten SET name = 'Elektrische Gefahren', beschreibung = 'Gefährdungen durch elektrischen Strom' WHERE nummer = 3;
-UPDATE gefaehrdungsarten SET name = 'Gesundheitsgefährdende Stoffe (chemische/biologische)', beschreibung = 'Gefahrstoffe, biologische Arbeitsstoffe' WHERE nummer = 4;
-UPDATE gefaehrdungsarten SET name = 'Brand- und Explosionsgefahren', beschreibung = 'Brandgefahr, Explosionsgefahr' WHERE nummer = 5;
-UPDATE gefaehrdungsarten SET name = 'Thermische Gefährdung', beschreibung = 'Hitze, Kälte, heiße/kalte Oberflächen' WHERE nummer = 6;
-UPDATE gefaehrdungsarten SET name = 'Spezielle physikalische Belastungen', beschreibung = 'Lärm, Vibration, Strahlung' WHERE nummer = 7;
-UPDATE gefaehrdungsarten SET name = 'Belastungen durch Arbeitsumgebungsbedingungen', beschreibung = 'Klima, Beleuchtung, Platzverhältnisse' WHERE nummer = 8;
-UPDATE gefaehrdungsarten SET name = 'Belastungen am Bewegungsapparat', beschreibung = 'Heben, Tragen, Zwangshaltungen' WHERE nummer = 9;
-UPDATE gefaehrdungsarten SET name = 'Psychische Belastungen', beschreibung = 'Stress, Zeitdruck, Überforderung' WHERE nummer = 10;
-UPDATE gefaehrdungsarten SET name = 'Unerwartete Aktionen', beschreibung = 'Unvorhergesehene Ereignisse, Fehlverhalten' WHERE nummer = 11;
-UPDATE gefaehrdungsarten SET name = 'Ausfall Energieversorgung', beschreibung = 'Stromausfall, Versorgungsunterbrechung' WHERE nummer = 12;
-UPDATE gefaehrdungsarten SET name = 'Arbeitsorganisation', beschreibung = 'Organisatorische Mängel, Kommunikation' WHERE nummer = 13;
-
--- Auch arbeits_kategorien korrigieren
-ALTER TABLE arbeits_kategorien CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE arbeits_unterkategorien CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE gefaehrdung_bibliothek CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE projekt_gefaehrdungen CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE projekte CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE benutzer CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-SELECT 'Umlaute-Update erfolgreich!' as Status;
+SELECT 'Gefaehrdungsarten ohne Umlaute eingefuegt!' as Status;
