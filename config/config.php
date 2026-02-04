@@ -18,7 +18,7 @@ date_default_timezone_set('Europe/Berlin');
 
 // Basis-Pfade
 define('BASE_PATH', dirname(__DIR__));
-define('BASE_URL', '/gefaehrdungsbeurteilung');
+define('BASE_URL', '');
 
 // Anwendungs-Einstellungen
 define('APP_NAME', 'Gefährdungsbeurteilung');
