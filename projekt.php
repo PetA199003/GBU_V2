@@ -349,6 +349,9 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                 <i class="bi bi-plus-circle me-2"></i>Neue Gefährdung
             </button>
             <?php endif; ?>
+            <a href="<?= BASE_URL ?>/unterweisung.php?projekt_id=<?= $projektId ?>" class="btn btn-warning">
+                <i class="bi bi-clipboard-check me-2"></i>Sicherheitsunterweisung
+            </a>
             <div class="dropdown">
                 <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
                     <i class="bi bi-download me-2"></i>Export

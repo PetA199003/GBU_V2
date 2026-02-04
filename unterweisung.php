@@ -1,0 +1,438 @@
+<?php
+/**
+ * Sicherheitsunterweisung - Verwaltung und Konfiguration
+ */
+
+require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/config/database.php';
+
+requireLogin();
+
+$projektId = $_GET['projekt_id'] ?? null;
+
+if (!$projektId) {
+    setFlashMessage('error', 'Projekt-ID erforderlich');
+    redirect('projekte.php');
+}
+
+$db = Database::getInstance();
+$userId = $_SESSION['user_id'];
+$isAdmin = hasRole(ROLE_ADMIN);
+
+// Projekt laden
+$projekt = $db->fetchOne("SELECT * FROM projekte WHERE id = ?", [$projektId]);
+if (!$projekt) {
+    setFlashMessage('error', 'Projekt nicht gefunden');
+    redirect('projekte.php');
+}
+
+// Berechtigung pruefen
+if (!$isAdmin) {
+    $access = $db->fetchOne(
+        "SELECT berechtigung FROM benutzer_projekte WHERE benutzer_id = ? AND projekt_id = ?",
+        [$userId, $projektId]
+    );
+    if (!$access) {
+        setFlashMessage('error', 'Keine Berechtigung');
+        redirect('projekte.php');
+    }
+}
+
+$canEdit = $isAdmin || ($access['berechtigung'] ?? '') === 'bearbeiten';
+
+// Unterweisung laden oder erstellen
+$unterweisung = $db->fetchOne("SELECT * FROM projekt_unterweisungen WHERE projekt_id = ?", [$projektId]);
+
+if (!$unterweisung && $canEdit) {
+    // Automatisch erstellen
+    $unterweisungId = $db->insert('projekt_unterweisungen', [
+        'projekt_id' => $projektId,
+        'titel' => 'Sicherheitsunterweisung',
+        'erstellt_von' => $userId
+    ]);
+    $unterweisung = $db->fetchOne("SELECT * FROM projekt_unterweisungen WHERE id = ?", [$unterweisungId]);
+}
+
+if (!$unterweisung) {
+    setFlashMessage('error', 'Keine Unterweisung vorhanden');
+    redirect('projekt.php?id=' . $projektId);
+}
+
+$unterweisungId = $unterweisung['id'];
+
+// Aktionen verarbeiten
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
+    $action = $_POST['action'] ?? '';
+
+    switch ($action) {
+        case 'update_settings':
+            $db->update('projekt_unterweisungen', [
+                'titel' => $_POST['titel'] ?? 'Sicherheitsunterweisung',
+                'durchgefuehrt_von' => $_POST['durchgefuehrt_von'] ?? null,
+                'durchgefuehrt_am' => $_POST['durchgefuehrt_am'] ?: null
+            ], 'id = :id', ['id' => $unterweisungId]);
+            setFlashMessage('success', 'Einstellungen gespeichert');
+            break;
+
+        case 'save_bausteine':
+            // Alle alten Bausteine loeschen
+            $db->delete('unterweisung_bausteine', 'unterweisung_id = ?', [$unterweisungId]);
+
+            // Neue Bausteine speichern
+            $bausteinIds = $_POST['bausteine'] ?? [];
+            $sortierung = 1;
+            foreach ($bausteinIds as $bausteinId) {
+                $db->insert('unterweisung_bausteine', [
+                    'unterweisung_id' => $unterweisungId,
+                    'baustein_id' => $bausteinId,
+                    'sortierung' => $sortierung++
+                ]);
+            }
+            setFlashMessage('success', count($bausteinIds) . ' Bausteine gespeichert');
+            break;
+
+        case 'add_teilnehmer':
+            $db->insert('unterweisung_teilnehmer', [
+                'unterweisung_id' => $unterweisungId,
+                'vorname' => $_POST['vorname'] ?? '',
+                'nachname' => $_POST['nachname'] ?? '',
+                'firma' => $_POST['firma'] ?? null
+            ]);
+            setFlashMessage('success', 'Teilnehmer hinzugefuegt');
+            break;
+
+        case 'delete_teilnehmer':
+            $db->delete('unterweisung_teilnehmer', 'id = ? AND unterweisung_id = ?', [$_POST['teilnehmer_id'], $unterweisungId]);
+            setFlashMessage('success', 'Teilnehmer entfernt');
+            break;
+
+        case 'import_csv':
+            if (isset($_FILES['csv_file']) && $_FILES['csv_file']['error'] === UPLOAD_ERR_OK) {
+                $handle = fopen($_FILES['csv_file']['tmp_name'], 'r');
+                $imported = 0;
+                $firstRow = true;
+
+                while (($data = fgetcsv($handle, 1000, ';')) !== false) {
+                    // Erste Zeile ueberspringen wenn Header
+                    if ($firstRow && (stripos($data[0], 'name') !== false || stripos($data[0], 'vorname') !== false)) {
+                        $firstRow = false;
+                        continue;
+                    }
+                    $firstRow = false;
+
+                    if (count($data) >= 2 && !empty(trim($data[0])) && !empty(trim($data[1]))) {
+                        $db->insert('unterweisung_teilnehmer', [
+                            'unterweisung_id' => $unterweisungId,
+                            'vorname' => trim($data[0]),
+                            'nachname' => trim($data[1]),
+                            'firma' => isset($data[2]) ? trim($data[2]) : null
+                        ]);
+                        $imported++;
+                    }
+                }
+                fclose($handle);
+                setFlashMessage('success', $imported . ' Teilnehmer importiert');
+            }
+            break;
+
+        case 'clear_teilnehmer':
+            $db->delete('unterweisung_teilnehmer', 'unterweisung_id = ?', [$unterweisungId]);
+            setFlashMessage('success', 'Alle Teilnehmer entfernt');
+            break;
+    }
+
+    redirect('unterweisung.php?projekt_id=' . $projektId);
+}
+
+// Alle Bausteine laden
+$alleBausteine = $db->fetchAll("SELECT * FROM unterweisungs_bausteine WHERE aktiv = 1 ORDER BY sortierung, kategorie, titel");
+
+// Bausteine nach Kategorie gruppieren
+$bausteineNachKategorie = [];
+foreach ($alleBausteine as $b) {
+    if (!isset($bausteineNachKategorie[$b['kategorie']])) {
+        $bausteineNachKategorie[$b['kategorie']] = [];
+    }
+    $bausteineNachKategorie[$b['kategorie']][] = $b;
+}
+
+// Ausgewaehlte Bausteine laden
+$ausgewaehlteBausteine = $db->fetchAll("
+    SELECT baustein_id FROM unterweisung_bausteine
+    WHERE unterweisung_id = ?
+    ORDER BY sortierung
+", [$unterweisungId]);
+$ausgewaehlteIds = array_column($ausgewaehlteBausteine, 'baustein_id');
+
+// Teilnehmer laden (nach Nachname sortiert)
+$teilnehmer = $db->fetchAll("
+    SELECT * FROM unterweisung_teilnehmer
+    WHERE unterweisung_id = ?
+    ORDER BY nachname, vorname
+", [$unterweisungId]);
+
+// Ersteller
+$ersteller = $db->fetchOne("SELECT vorname, nachname FROM benutzer WHERE id = ?", [$projekt['erstellt_von']]);
+$erstellerName = $ersteller ? $ersteller['vorname'] . ' ' . $ersteller['nachname'] : '';
+
+$pageTitle = 'Sicherheitsunterweisung - ' . $projekt['name'];
+require_once __DIR__ . '/templates/header.php';
+?>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-clipboard-check me-2"></i>Sicherheitsunterweisung
+            </h1>
+            <p class="text-muted mb-0">
+                Projekt: <?= sanitize($projekt['name']) ?> | <?= sanitize($projekt['location']) ?>
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="<?= BASE_URL ?>/projekt.php?id=<?= $projektId ?>" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Zurueck zum Projekt
+            </a>
+            <a href="<?= BASE_URL ?>/api/export_unterweisung.php?id=<?= $unterweisungId ?>&type=unterweisung" class="btn btn-success" target="_blank">
+                <i class="bi bi-file-pdf me-2"></i>Unterweisung drucken
+            </a>
+            <a href="<?= BASE_URL ?>/api/export_unterweisung.php?id=<?= $unterweisungId ?>&type=teilnehmerliste" class="btn btn-primary" target="_blank">
+                <i class="bi bi-file-pdf me-2"></i>Teilnehmerliste drucken
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Linke Spalte: Einstellungen und Bausteine -->
+        <div class="col-lg-7 mb-4">
+            <!-- Einstellungen -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-gear me-2"></i>Einstellungen</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="action" value="update_settings">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Durchgefuehrt von</label>
+                                <input type="text" class="form-control" name="durchgefuehrt_von"
+                                       value="<?= sanitize($unterweisung['durchgefuehrt_von'] ?? $erstellerName) ?>"
+                                       <?= !$canEdit ? 'disabled' : '' ?>>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Datum</label>
+                                <input type="date" class="form-control" name="durchgefuehrt_am"
+                                       value="<?= $unterweisung['durchgefuehrt_am'] ?? date('Y-m-d') ?>"
+                                       <?= !$canEdit ? 'disabled' : '' ?>>
+                            </div>
+                        </div>
+                        <?php if ($canEdit): ?>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check me-2"></i>Speichern
+                        </button>
+                        <?php endif; ?>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Bausteine auswaehlen -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>Inhalte auswaehlen</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="bausteineForm">
+                        <input type="hidden" name="action" value="save_bausteine">
+
+                        <div class="accordion" id="bausteineAccordion">
+                            <?php $accIndex = 0; foreach ($bausteineNachKategorie as $kategorie => $bausteine): $accIndex++; ?>
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button <?= $accIndex > 1 ? 'collapsed' : '' ?>" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#kat<?= $accIndex ?>">
+                                        <?= sanitize($kategorie) ?>
+                                        <span class="badge bg-primary ms-2 kat-count" data-kat="<?= $accIndex ?>">
+                                            <?= count(array_filter($bausteine, fn($b) => in_array($b['id'], $ausgewaehlteIds))) ?>
+                                        </span>
+                                    </button>
+                                </h2>
+                                <div id="kat<?= $accIndex ?>" class="accordion-collapse collapse <?= $accIndex === 1 ? 'show' : '' ?>">
+                                    <div class="accordion-body">
+                                        <?php foreach ($bausteine as $b): ?>
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input baustein-check" type="checkbox"
+                                                   name="bausteine[]" value="<?= $b['id'] ?>"
+                                                   id="baustein<?= $b['id'] ?>"
+                                                   data-kat="<?= $accIndex ?>"
+                                                   <?= in_array($b['id'], $ausgewaehlteIds) ? 'checked' : '' ?>
+                                                   <?= !$canEdit ? 'disabled' : '' ?>>
+                                            <label class="form-check-label" for="baustein<?= $b['id'] ?>">
+                                                <strong><?= sanitize($b['titel']) ?></strong>
+                                            </label>
+                                            <button type="button" class="btn btn-sm btn-link p-0 ms-2"
+                                                    data-bs-toggle="collapse" data-bs-target="#preview<?= $b['id'] ?>">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <div class="collapse mt-2" id="preview<?= $b['id'] ?>">
+                                                <div class="card card-body bg-light small">
+                                                    <?= nl2br(sanitize($b['inhalt'])) ?>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <?php if ($canEdit): ?>
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-save me-2"></i>Auswahl speichern
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary ms-2" onclick="selectAll(true)">
+                                Alle auswaehlen
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary ms-2" onclick="selectAll(false)">
+                                Alle abwaehlen
+                            </button>
+                        </div>
+                        <?php endif; ?>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rechte Spalte: Teilnehmerliste -->
+        <div class="col-lg-5 mb-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-people me-2"></i>Teilnehmerliste (<?= count($teilnehmer) ?>)</h5>
+                    <a href="<?= BASE_URL ?>/signatur.php?id=<?= $unterweisungId ?>" class="btn btn-sm btn-success" target="_blank">
+                        <i class="bi bi-pencil-square me-1"></i>Digital unterschreiben
+                    </a>
+                </div>
+                <div class="card-body">
+                    <?php if ($canEdit): ?>
+                    <!-- Manuell hinzufuegen -->
+                    <form method="POST" class="mb-3">
+                        <input type="hidden" name="action" value="add_teilnehmer">
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <input type="text" class="form-control form-control-sm" name="vorname" placeholder="Vorname" required>
+                            </div>
+                            <div class="col-4">
+                                <input type="text" class="form-control form-control-sm" name="nachname" placeholder="Nachname" required>
+                            </div>
+                            <div class="col-3">
+                                <input type="text" class="form-control form-control-sm" name="firma" placeholder="Firma">
+                            </div>
+                            <div class="col-1">
+                                <button type="submit" class="btn btn-sm btn-success w-100" title="Hinzufuegen">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- CSV Import -->
+                    <div class="mb-3">
+                        <form method="POST" enctype="multipart/form-data" class="d-flex gap-2">
+                            <input type="hidden" name="action" value="import_csv">
+                            <input type="file" class="form-control form-control-sm" name="csv_file" accept=".csv" required>
+                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-upload me-1"></i>CSV Import
+                            </button>
+                        </form>
+                        <small class="text-muted">Format: Vorname;Nachname;Firma (optional)</small>
+                    </div>
+
+                    <hr>
+                    <?php endif; ?>
+
+                    <!-- Teilnehmerliste -->
+                    <?php if (empty($teilnehmer)): ?>
+                    <p class="text-muted text-center">Noch keine Teilnehmer erfasst</p>
+                    <?php else: ?>
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Firma</th>
+                                    <th class="text-center">Unterschrift</th>
+                                    <?php if ($canEdit): ?><th></th><?php endif; ?>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($teilnehmer as $t): ?>
+                                <tr>
+                                    <td><?= sanitize($t['nachname']) ?>, <?= sanitize($t['vorname']) ?></td>
+                                    <td class="small text-muted"><?= sanitize($t['firma'] ?? '-') ?></td>
+                                    <td class="text-center">
+                                        <?php if ($t['unterschrift']): ?>
+                                        <span class="badge bg-success" title="<?= date('d.m.Y H:i', strtotime($t['unterschrieben_am'])) ?>">
+                                            <i class="bi bi-check"></i> <?= date('d.m.', strtotime($t['unterschrieben_am'])) ?>
+                                        </span>
+                                        <?php else: ?>
+                                        <span class="badge bg-warning text-dark">Offen</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <?php if ($canEdit): ?>
+                                    <td>
+                                        <form method="POST" class="d-inline" onsubmit="return confirm('Teilnehmer entfernen?')">
+                                            <input type="hidden" name="action" value="delete_teilnehmer">
+                                            <input type="hidden" name="teilnehmer_id" value="<?= $t['id'] ?>">
+                                            <button type="submit" class="btn btn-sm btn-link text-danger p-0">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                    <?php endif; ?>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <?php if ($canEdit): ?>
+                    <div class="mt-3">
+                        <form method="POST" onsubmit="return confirm('Alle Teilnehmer wirklich loeschen?')">
+                            <input type="hidden" name="action" value="clear_teilnehmer">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash me-1"></i>Alle entfernen
+                            </button>
+                        </form>
+                    </div>
+                    <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function selectAll(checked) {
+    document.querySelectorAll('.baustein-check').forEach(cb => {
+        cb.checked = checked;
+    });
+    updateCounts();
+}
+
+function updateCounts() {
+    document.querySelectorAll('.kat-count').forEach(badge => {
+        const kat = badge.dataset.kat;
+        const count = document.querySelectorAll(`.baustein-check[data-kat="${kat}"]:checked`).length;
+        badge.textContent = count;
+    });
+}
+
+document.querySelectorAll('.baustein-check').forEach(cb => {
+    cb.addEventListener('change', updateCounts);
+});
+</script>
+
+<?php require_once __DIR__ . '/templates/footer.php'; ?>
