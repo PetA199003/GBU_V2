@@ -188,7 +188,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             break;
 
         case 'delete_unterschrift':
-            if ($isAdmin) {
+            // Bearbeiter und Admin duerfen Unterschriften loeschen
+            if ($canEdit) {
                 $db->update('unterweisung_teilnehmer', [
                     'unterschrift' => null,
                     'unterschrieben_am' => null
@@ -761,7 +762,7 @@ require_once __DIR__ . '/templates/header.php';
                 </div>
             </div>
             <div class="modal-footer">
-                <?php if ($isAdmin): ?>
+                <?php if ($canEdit): ?>
                 <form method="POST" id="deleteSignatureForm" onsubmit="return confirm('Unterschrift wirklich loeschen?')">
                     <input type="hidden" name="action" value="delete_unterschrift">
                     <input type="hidden" name="teilnehmer_id" id="sigTeilnehmerId">
