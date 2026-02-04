@@ -102,7 +102,6 @@ require_once __DIR__ . '/templates/header.php';
                                 <tr>
                                     <th>Projekt</th>
                                     <th>Zeitraum</th>
-                                    <th>Status</th>
                                     <th>Gefährdungen</th>
                                     <th></th>
                                 </tr>
@@ -124,15 +123,6 @@ require_once __DIR__ . '/templates/header.php';
                                             <?= date('d.m.Y', strtotime($p['zeitraum_von'])) ?><br>
                                             bis <?= date('d.m.Y', strtotime($p['zeitraum_bis'])) ?>
                                         </small>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-<?= $p['status'] === 'aktiv' ? 'success' : ($p['status'] === 'geplant' ? 'warning text-dark' : 'secondary') ?>">
-                                            <?= ucfirst($p['status']) ?>
-                                        </span>
-                                        <br>
-                                        <span class="badge bg-<?= $p['indoor_outdoor'] === 'indoor' ? 'info' : ($p['indoor_outdoor'] === 'outdoor' ? 'success' : 'primary') ?>">
-                                            <?= ucfirst($p['indoor_outdoor']) ?>
-                                        </span>
                                     </td>
                                     <td>
                                         <span class="badge bg-primary"><?= $p['gef_count'] ?> gesamt</span>
@@ -164,10 +154,6 @@ require_once __DIR__ . '/templates/header.php';
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <a href="<?= BASE_URL ?>/projekte.php" class="btn btn-outline-primary py-3">
-                            <i class="bi bi-folder me-2"></i>Meine Projekte
-                        </a>
-
                         <?php if (hasRole(ROLE_EDITOR)): ?>
                         <a href="<?= BASE_URL ?>/bibliothek/gefaehrdungen.php" class="btn btn-outline-success py-3">
                             <i class="bi bi-book me-2"></i>Bibliothek
@@ -175,7 +161,6 @@ require_once __DIR__ . '/templates/header.php';
                         <?php endif; ?>
 
                         <?php if (hasRole(ROLE_ADMIN)): ?>
-                        <hr>
                         <a href="<?= BASE_URL ?>/admin/projekte.php" class="btn btn-outline-secondary py-3">
                             <i class="bi bi-folder-plus me-2"></i>Projekte verwalten
                         </a>
