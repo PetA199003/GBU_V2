@@ -66,50 +66,10 @@ require_once __DIR__ . '/templates/header.php';
         </div>
     </div>
     <?php else: ?>
-
-    <!-- Filter nach Status -->
-    <ul class="nav nav-tabs mb-4" role="tablist">
-        <li class="nav-item">
-            <a class="nav-link active" data-bs-toggle="tab" href="#alle">
-                Alle <span class="badge bg-secondary"><?= count($projekte) ?></span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" data-bs-toggle="tab" href="#aktiv">
-                Aktiv <span class="badge bg-success"><?= count(array_filter($projekte, fn($p) => $p['status'] === 'aktiv')) ?></span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" data-bs-toggle="tab" href="#geplant">
-                Geplant <span class="badge bg-warning text-dark"><?= count(array_filter($projekte, fn($p) => $p['status'] === 'geplant')) ?></span>
-            </a>
-        </li>
-    </ul>
-
-    <div class="tab-content">
-        <div class="tab-pane fade show active" id="alle">
-            <div class="row">
-                <?php foreach ($projekte as $p): ?>
-                <?php include __DIR__ . '/templates/_projekt_card.php'; ?>
-                <?php endforeach; ?>
-            </div>
-        </div>
-
-        <div class="tab-pane fade" id="aktiv">
-            <div class="row">
-                <?php foreach (array_filter($projekte, fn($p) => $p['status'] === 'aktiv') as $p): ?>
-                <?php include __DIR__ . '/templates/_projekt_card.php'; ?>
-                <?php endforeach; ?>
-            </div>
-        </div>
-
-        <div class="tab-pane fade" id="geplant">
-            <div class="row">
-                <?php foreach (array_filter($projekte, fn($p) => $p['status'] === 'geplant') as $p): ?>
-                <?php include __DIR__ . '/templates/_projekt_card.php'; ?>
-                <?php endforeach; ?>
-            </div>
-        </div>
+    <div class="row">
+        <?php foreach ($projekte as $p): ?>
+        <?php include __DIR__ . '/templates/_projekt_card.php'; ?>
+        <?php endforeach; ?>
     </div>
     <?php endif; ?>
 </div>
