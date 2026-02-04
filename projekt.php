@@ -140,6 +140,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             setFlashMessage('success', 'Gefährdung wurde entfernt.');
             break;
 
+        case 'add_standard_gefaehrdungen':
+            // Standard-Gefährdungen basierend auf Projekt-Tags hinzufügen
+            $projektTagIds = $db->fetchAll(
+                "SELECT tag_id FROM projekt_tags WHERE projekt_id = ?",
+                [$projektId]
+            );
+            $tagIds = array_column($projektTagIds, 'tag_id');
+
+            if (empty($tagIds)) {
+                setFlashMessage('warning', 'Keine Tags für dieses Projekt definiert. Bitte den Administrator kontaktieren.');
+                break;
+            }
+
+            // Gefährdungen mit passenden Tags finden
+            $placeholders = implode(',', array_fill(0, count($tagIds), '?'));
+            $gefaehrdungenBib = $db->fetchAll("
+                SELECT DISTINCT gb.*
+                FROM gefaehrdung_bibliothek gb
+                JOIN gefaehrdung_bibliothek_tags gbt ON gb.id = gbt.gefaehrdung_id
+                WHERE gbt.tag_id IN ($placeholders)
+            ", $tagIds);
+
+            $addedCount = 0;
+            foreach ($gefaehrdungenBib as $gef) {
+                // Prüfen ob bereits vorhanden
+                $exists = $db->fetchOne(
+                    "SELECT id FROM projekt_gefaehrdungen WHERE projekt_id = ? AND gefaehrdung_bibliothek_id = ?",
+                    [$projektId, $gef['id']]
+                );
+
+                if (!$exists) {
+                    $db->insert('projekt_gefaehrdungen', [
+                        'projekt_id' => $projektId,
+                        'gefaehrdung_bibliothek_id' => $gef['id'],
+                        'gefaehrdungsart_id' => $gef['gefaehrdungsart_id'] ?? null,
+                        'kategorie_id' => $gef['kategorie_id'] ?? null,
+                        'unterkategorie_id' => $gef['unterkategorie_id'] ?? null,
+                        'titel' => $gef['titel'],
+                        'beschreibung' => $gef['beschreibung'],
+                        'schadenschwere' => $gef['standard_schadenschwere'] ?? 2,
+                        'wahrscheinlichkeit' => $gef['standard_wahrscheinlichkeit'] ?? 2,
+                        'stop_s' => $gef['stop_s'] ?? 0,
+                        'stop_t' => $gef['stop_t'] ?? 0,
+                        'stop_o' => $gef['stop_o'] ?? 0,
+                        'stop_p' => $gef['stop_p'] ?? 0,
+                        'massnahmen' => $gef['typische_massnahmen'],
+                        'erstellt_von' => $userId
+                    ]);
+                    $addedCount++;
+                }
+            }
+
+            if ($addedCount > 0) {
+                setFlashMessage('success', "$addedCount Standard-Gefährdungen wurden hinzugefügt.");
+            } else {
+                setFlashMessage('info', 'Alle passenden Standard-Gefährdungen sind bereits im Projekt vorhanden.');
+            }
+            break;
+
         case 'add_kategorie':
             // Neue Kategorie hinzufügen
             $maxNummer = $db->fetchOne("SELECT MAX(nummer) as max FROM arbeits_kategorien WHERE projekt_id = ? OR ist_global = 1", [$projektId]);
@@ -277,6 +336,12 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
         </div>
         <div class="d-flex gap-2">
             <?php if ($canEdit): ?>
+            <form method="POST" class="d-inline">
+                <input type="hidden" name="action" value="add_standard_gefaehrdungen">
+                <button type="submit" class="btn btn-outline-success" title="Standard-Gefährdungen basierend auf Projekt-Tags hinzufügen">
+                    <i class="bi bi-magic me-2"></i>Standard-Gefährdungen
+                </button>
+            </form>
             <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#bibliothekModal">
                 <i class="bi bi-book me-2"></i>Aus Bibliothek
             </button>
