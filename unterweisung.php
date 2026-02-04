@@ -320,6 +320,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             $db->delete('unterweisung_teilnehmer', 'unterweisung_id = ?', [$unterweisungId]);
             setFlashMessage('success', 'Alle Teilnehmer entfernt');
             break;
+
+        case 'update_sortierung':
+            // AJAX-Aufruf für Sortierung
+            header('Content-Type: application/json');
+            $sortierung = $_POST['sortierung'] ?? [];
+            if (is_array($sortierung)) {
+                $pos = 1;
+                foreach ($sortierung as $bausteinId) {
+                    $db->update('unterweisung_bausteine', [
+                        'sortierung' => $pos
+                    ], 'unterweisung_id = :uid AND baustein_id = :bid', [
+                        'uid' => $unterweisungId,
+                        'bid' => $bausteinId
+                    ]);
+                    $pos++;
+                }
+                echo json_encode(['success' => true]);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Ungültige Daten']);
+            }
+            exit;
     }
 
     redirect('unterweisung.php?projekt_id=' . $projektId);
@@ -341,11 +362,13 @@ foreach ($alleBausteine as $b) {
     $bausteineNachKategorie[$b['kategorie']][] = $b;
 }
 
-// Ausgewählte Bausteine laden
+// Ausgewählte Bausteine laden (mit Details für Sortierung)
 $ausgewaehlteBausteine = $db->fetchAll("
-    SELECT baustein_id FROM unterweisung_bausteine
-    WHERE unterweisung_id = ?
-    ORDER BY sortierung
+    SELECT ub.baustein_id, ub.sortierung, b.titel, b.kategorie, b.bild_url
+    FROM unterweisung_bausteine ub
+    JOIN unterweisungs_bausteine b ON ub.baustein_id = b.id
+    WHERE ub.unterweisung_id = ?
+    ORDER BY ub.sortierung
 ", [$unterweisungId]);
 $ausgewaehlteIds = array_column($ausgewaehlteBausteine, 'baustein_id');
 
@@ -570,6 +593,36 @@ require_once __DIR__ . '/templates/header.php';
                     </form>
                 </div>
             </div>
+
+            <!-- Reihenfolge der ausgewählten Bausteine -->
+            <?php if (!empty($ausgewaehlteBausteine) && $canEdit): ?>
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-sort-down me-2"></i>Reihenfolge ändern</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Ziehen Sie die Elemente, um die Reihenfolge zu ändern. Die Änderung wird automatisch gespeichert.
+                    </p>
+                    <ul class="list-group" id="sortableBausteine">
+                        <?php foreach ($ausgewaehlteBausteine as $ab): ?>
+                        <li class="list-group-item d-flex align-items-center sortable-item" data-id="<?= $ab['baustein_id'] ?>">
+                            <i class="bi bi-grip-vertical me-3 text-muted drag-handle" style="cursor: grab;"></i>
+                            <?php if ($ab['bild_url']): ?>
+                            <img src="<?= sanitize($ab['bild_url']) ?>" alt="" class="me-2" style="width: 24px; height: 24px; object-fit: contain;">
+                            <?php endif; ?>
+                            <span class="badge bg-secondary me-2"><?= sanitize($ab['kategorie']) ?></span>
+                            <span><?= sanitize($ab['titel']) ?></span>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <div id="sortSaveStatus" class="mt-2 small text-success" style="display: none;">
+                        <i class="bi bi-check-circle me-1"></i>Reihenfolge gespeichert
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
 
         <!-- Rechte Spalte: Teilnehmerliste -->
@@ -1201,6 +1254,141 @@ if (bildInput) {
         }
     });
 }
+
+// Sortierung der Bausteine mit Drag & Drop
+const sortableList = document.getElementById('sortableBausteine');
+if (sortableList) {
+    let draggedItem = null;
+
+    sortableList.querySelectorAll('.sortable-item').forEach(item => {
+        item.draggable = true;
+
+        item.addEventListener('dragstart', function(e) {
+            draggedItem = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+
+        item.addEventListener('dragend', function() {
+            this.classList.remove('dragging');
+            draggedItem = null;
+            saveSortierung();
+        });
+
+        item.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+
+            const bounding = this.getBoundingClientRect();
+            const offset = e.clientY - bounding.top;
+
+            if (offset > bounding.height / 2) {
+                this.parentNode.insertBefore(draggedItem, this.nextSibling);
+            } else {
+                this.parentNode.insertBefore(draggedItem, this);
+            }
+        });
+
+        item.addEventListener('dragenter', function(e) {
+            e.preventDefault();
+            this.classList.add('drag-over');
+        });
+
+        item.addEventListener('dragleave', function() {
+            this.classList.remove('drag-over');
+        });
+
+        item.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+        });
+    });
+
+    // Touch-Events für Mobile
+    let touchStartY = 0;
+    let currentTouchItem = null;
+
+    sortableList.querySelectorAll('.sortable-item').forEach(item => {
+        item.addEventListener('touchstart', function(e) {
+            currentTouchItem = this;
+            touchStartY = e.touches[0].clientY;
+            this.classList.add('dragging');
+        }, { passive: true });
+
+        item.addEventListener('touchmove', function(e) {
+            if (!currentTouchItem) return;
+
+            const touch = e.touches[0];
+            const items = Array.from(sortableList.querySelectorAll('.sortable-item'));
+
+            items.forEach(other => {
+                if (other === currentTouchItem) return;
+                const rect = other.getBoundingClientRect();
+                if (touch.clientY > rect.top && touch.clientY < rect.bottom) {
+                    const offset = touch.clientY - rect.top;
+                    if (offset > rect.height / 2) {
+                        sortableList.insertBefore(currentTouchItem, other.nextSibling);
+                    } else {
+                        sortableList.insertBefore(currentTouchItem, other);
+                    }
+                }
+            });
+        }, { passive: true });
+
+        item.addEventListener('touchend', function() {
+            if (currentTouchItem) {
+                currentTouchItem.classList.remove('dragging');
+                saveSortierung();
+            }
+            currentTouchItem = null;
+        });
+    });
+
+    function saveSortierung() {
+        const items = sortableList.querySelectorAll('.sortable-item');
+        const sortierung = Array.from(items).map(item => item.dataset.id);
+
+        const formData = new FormData();
+        formData.append('action', 'update_sortierung');
+        sortierung.forEach(id => formData.append('sortierung[]', id));
+
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const status = document.getElementById('sortSaveStatus');
+                status.style.display = 'block';
+                setTimeout(() => status.style.display = 'none', 2000);
+            }
+        })
+        .catch(err => console.error('Fehler beim Speichern:', err));
+    }
+}
 </script>
+
+<style>
+/* Drag & Drop Styles */
+.sortable-item {
+    transition: transform 0.2s, box-shadow 0.2s;
+    user-select: none;
+}
+.sortable-item:hover {
+    background-color: #f8f9fa;
+}
+.sortable-item.dragging {
+    opacity: 0.5;
+    background-color: #e9ecef;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+}
+.sortable-item.drag-over {
+    border-top: 2px solid #0d6efd;
+}
+.drag-handle:hover {
+    color: #0d6efd !important;
+}
+</style>
 
 <?php require_once __DIR__ . '/templates/footer.php'; ?>
