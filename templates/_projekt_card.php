@@ -7,29 +7,13 @@ $canEdit = ($p['berechtigung'] ?? 'ansehen') === 'bearbeiten' || hasRole(ROLE_AD
 ?>
 <div class="col-lg-4 col-md-6 mb-4 projekt-card" data-status="<?= $p['status'] ?>">
     <div class="card h-100 border-<?= $p['status'] === 'aktiv' ? 'success' : ($p['status'] === 'geplant' ? 'warning' : 'secondary') ?>">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <div>
-                <h5 class="mb-0">
-                    <?= sanitize($p['name']) ?>
-                </h5>
-                <small class="text-muted">
-                    <i class="bi bi-geo-alt me-1"></i><?= sanitize($p['location']) ?>
-                </small>
-            </div>
-            <div class="d-flex flex-column align-items-end gap-1">
-                <span class="badge bg-<?= $p['status'] === 'aktiv' ? 'success' : ($p['status'] === 'geplant' ? 'warning text-dark' : 'secondary') ?>">
-                    <?= ucfirst($p['status']) ?>
-                </span>
-                <?php if ($canEdit): ?>
-                <span class="badge bg-primary" title="Bearbeiten erlaubt">
-                    <i class="bi bi-pencil"></i>
-                </span>
-                <?php else: ?>
-                <span class="badge bg-secondary" title="Nur Ansehen">
-                    <i class="bi bi-eye"></i>
-                </span>
-                <?php endif; ?>
-            </div>
+        <div class="card-header">
+            <h5 class="mb-0">
+                <?= sanitize($p['name']) ?>
+            </h5>
+            <small class="text-muted">
+                <i class="bi bi-geo-alt me-1"></i><?= sanitize($p['location']) ?>
+            </small>
         </div>
         <div class="card-body">
             <div class="row mb-3">
