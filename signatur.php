@@ -115,11 +115,28 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             border: 2px dashed #ccc;
             border-radius: 8px;
             touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
             cursor: crosshair;
+            /* iPad Pencil optimierung */
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Verhindere Scrollen beim Unterschreiben */
+        body.signing-active {
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
         }
         .signature-canvas.signing {
             border-color: #0d6efd;
             border-style: solid;
+        }
+        /* iPad/Touch optimization */
+        .signature-area {
+            -webkit-overflow-scrolling: auto;
         }
         .btn-sign {
             font-size: 1.2rem;
@@ -244,24 +261,87 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
         function setupCanvas() {
             // Canvas-Groesse anpassen
             const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width;
-            canvas.height = 200;
+            // Fuer Retina/HiDPI Displays
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = 200 * dpr;
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = '200px';
+            ctx.scale(dpr, dpr);
 
             ctx.strokeStyle = '#000';
             ctx.lineWidth = 2;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
 
-            // Touch-Events
-            canvas.addEventListener('touchstart', handleStart, { passive: false });
-            canvas.addEventListener('touchmove', handleMove, { passive: false });
-            canvas.addEventListener('touchend', handleEnd);
+            // Pointer Events (beste Unterstuetzung fuer iPad Pencil)
+            if (window.PointerEvent) {
+                canvas.addEventListener('pointerdown', handlePointerDown, { passive: false });
+                canvas.addEventListener('pointermove', handlePointerMove, { passive: false });
+                canvas.addEventListener('pointerup', handlePointerUp);
+                canvas.addEventListener('pointerleave', handlePointerUp);
+                canvas.addEventListener('pointercancel', handlePointerUp);
+            } else {
+                // Fallback: Touch-Events
+                canvas.addEventListener('touchstart', handleStart, { passive: false });
+                canvas.addEventListener('touchmove', handleMove, { passive: false });
+                canvas.addEventListener('touchend', handleEnd);
 
-            // Mouse-Events
-            canvas.addEventListener('mousedown', handleMouseDown);
-            canvas.addEventListener('mousemove', handleMouseMove);
-            canvas.addEventListener('mouseup', handleMouseUp);
-            canvas.addEventListener('mouseout', handleMouseUp);
+                // Mouse-Events
+                canvas.addEventListener('mousedown', handleMouseDown);
+                canvas.addEventListener('mousemove', handleMouseMove);
+                canvas.addEventListener('mouseup', handleMouseUp);
+                canvas.addEventListener('mouseout', handleMouseUp);
+            }
+        }
+
+        function handlePointerDown(e) {
+            e.preventDefault();
+            // Nur Stift und Touch, nicht Maus (ausser auf Desktop)
+            if (e.pointerType === 'mouse' && !window.matchMedia('(pointer: fine)').matches) {
+                return;
+            }
+            isDrawing = true;
+            canvas.classList.add('signing');
+            document.body.classList.add('signing-active');
+            canvas.setPointerCapture(e.pointerId);
+            const pos = getPointerPos(e);
+            lastX = pos.x;
+            lastY = pos.y;
+            // Druckempfindlichkeit fuer Apple Pencil
+            if (e.pressure && e.pressure > 0) {
+                ctx.lineWidth = Math.max(1, e.pressure * 4);
+            }
+        }
+
+        function handlePointerMove(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const pos = getPointerPos(e);
+            // Druckempfindlichkeit
+            if (e.pressure && e.pressure > 0) {
+                ctx.lineWidth = Math.max(1, e.pressure * 4);
+            }
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            lastX = pos.x;
+            lastY = pos.y;
+        }
+
+        function handlePointerUp(e) {
+            isDrawing = false;
+            document.body.classList.remove('signing-active');
+            ctx.lineWidth = 2; // Zuruecksetzen
+        }
+
+        function getPointerPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
         }
 
         function selectTeilnehmer(id, name) {
@@ -344,7 +424,8 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
         }
 
         function clearSignature() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const dpr = window.devicePixelRatio || 1;
+            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
             canvas.classList.remove('signing');
         }
 

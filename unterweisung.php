@@ -65,6 +65,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
     $action = $_POST['action'] ?? '';
 
     switch ($action) {
+        case 'add_baustein':
+            if ($isAdmin) {
+                $bildUrl = null;
+                // Bild hochladen
+                if (isset($_FILES['bild']) && $_FILES['bild']['error'] === UPLOAD_ERR_OK) {
+                    $uploadDir = __DIR__ . '/uploads/piktogramme/';
+                    if (!is_dir($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+                    $ext = pathinfo($_FILES['bild']['name'], PATHINFO_EXTENSION);
+                    $filename = 'piktogramm_' . time() . '_' . uniqid() . '.' . $ext;
+                    if (move_uploaded_file($_FILES['bild']['tmp_name'], $uploadDir . $filename)) {
+                        $bildUrl = BASE_URL . '/uploads/piktogramme/' . $filename;
+                    }
+                }
+
+                $db->insert('unterweisungs_bausteine', [
+                    'kategorie' => $_POST['kategorie'] ?? 'Sonstiges',
+                    'titel' => $_POST['titel'] ?? '',
+                    'inhalt' => $_POST['inhalt'] ?? '',
+                    'bild_url' => $bildUrl,
+                    'sortierung' => 100,
+                    'aktiv' => 1
+                ]);
+                setFlashMessage('success', 'Baustein hinzugefuegt');
+            }
+            break;
+
+        case 'delete_baustein':
+            if ($isAdmin) {
+                $db->delete('unterweisungs_bausteine', 'id = ?', [$_POST['baustein_id']]);
+                setFlashMessage('success', 'Baustein geloescht');
+            }
+            break;
+
         case 'update_settings':
             $db->update('projekt_unterweisungen', [
                 'titel' => $_POST['titel'] ?? 'Sicherheitsunterweisung',
@@ -238,8 +273,13 @@ require_once __DIR__ . '/templates/header.php';
 
             <!-- Bausteine auswaehlen -->
             <div class="card">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>Inhalte auswaehlen</h5>
+                    <?php if ($isAdmin): ?>
+                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addBausteinModal">
+                        <i class="bi bi-plus-lg me-1"></i>Eigenen Inhalt
+                    </button>
+                    <?php endif; ?>
                 </div>
                 <div class="card-body">
                     <form method="POST" id="bausteineForm">
@@ -267,16 +307,31 @@ require_once __DIR__ . '/templates/header.php';
                                                    data-kat="<?= $accIndex ?>"
                                                    <?= in_array($b['id'], $ausgewaehlteIds) ? 'checked' : '' ?>
                                                    <?= !$canEdit ? 'disabled' : '' ?>>
-                                            <label class="form-check-label" for="baustein<?= $b['id'] ?>">
+                                            <label class="form-check-label d-flex align-items-center" for="baustein<?= $b['id'] ?>">
+                                                <?php if ($b['bild_url']): ?>
+                                                <img src="<?= sanitize($b['bild_url']) ?>" alt="Piktogramm" class="me-2" style="width: 28px; height: 28px; object-fit: contain;">
+                                                <?php endif; ?>
                                                 <strong><?= sanitize($b['titel']) ?></strong>
                                             </label>
                                             <button type="button" class="btn btn-sm btn-link p-0 ms-2"
                                                     data-bs-toggle="collapse" data-bs-target="#preview<?= $b['id'] ?>">
                                                 <i class="bi bi-eye"></i>
                                             </button>
+                                            <?php if ($isAdmin): ?>
+                                            <form method="POST" class="d-inline ms-1" onsubmit="return confirm('Baustein wirklich loeschen?')">
+                                                <input type="hidden" name="action" value="delete_baustein">
+                                                <input type="hidden" name="baustein_id" value="<?= $b['id'] ?>">
+                                                <button type="submit" class="btn btn-sm btn-link text-danger p-0" title="Loeschen">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                            <?php endif; ?>
                                             <div class="collapse mt-2" id="preview<?= $b['id'] ?>">
-                                                <div class="card card-body bg-light small">
-                                                    <?= nl2br(sanitize($b['inhalt'])) ?>
+                                                <div class="card card-body bg-light small d-flex flex-row">
+                                                    <?php if ($b['bild_url']): ?>
+                                                    <img src="<?= sanitize($b['bild_url']) ?>" alt="Piktogramm" class="me-3" style="width: 60px; height: 60px; object-fit: contain;">
+                                                    <?php endif; ?>
+                                                    <div><?= nl2br(sanitize($b['inhalt'])) ?></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -414,6 +469,64 @@ require_once __DIR__ . '/templates/header.php';
     </div>
 </div>
 
+<!-- Modal: Eigenen Baustein hinzufuegen -->
+<?php if ($isAdmin): ?>
+<div class="modal fade" id="addBausteinModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="add_baustein">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Eigenen Inhalt hinzufuegen</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Kategorie</label>
+                        <select class="form-select" name="kategorie" id="kategorieSelect">
+                            <?php
+                            $kategorien = array_keys($bausteineNachKategorie);
+                            foreach ($kategorien as $kat): ?>
+                            <option value="<?= sanitize($kat) ?>"><?= sanitize($kat) ?></option>
+                            <?php endforeach; ?>
+                            <option value="__neu__">+ Neue Kategorie...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="neueKategorieDiv" style="display: none;">
+                        <label class="form-label">Neue Kategorie</label>
+                        <input type="text" class="form-control" id="neueKategorie" placeholder="z.B. Spezielle Gefahren">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Titel *</label>
+                        <input type="text" class="form-control" name="titel" required placeholder="z.B. Arbeiten mit Chemikalien">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Inhalt / Beschreibung *</label>
+                        <textarea class="form-control" name="inhalt" rows="6" required placeholder="• Punkt 1&#10;• Punkt 2&#10;• Punkt 3"></textarea>
+                        <small class="text-muted">Fuer Aufzaehlungen verwenden Sie • am Zeilenanfang</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Piktogramm / Bild (optional)</label>
+                        <input type="file" class="form-control" name="bild" accept="image/*">
+                        <small class="text-muted">Empfohlene Groesse: 100x100 Pixel, PNG oder JPG</small>
+                    </div>
+                    <div id="bildPreview" class="mb-3" style="display: none;">
+                        <label class="form-label">Vorschau:</label><br>
+                        <img id="previewImg" src="" alt="Vorschau" style="max-width: 100px; max-height: 100px; border: 1px solid #ddd; padding: 5px;">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-plus-lg me-2"></i>Hinzufuegen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <script>
 function selectAll(checked) {
     document.querySelectorAll('.baustein-check').forEach(cb => {
@@ -433,6 +546,51 @@ function updateCounts() {
 document.querySelectorAll('.baustein-check').forEach(cb => {
     cb.addEventListener('change', updateCounts);
 });
+
+// Kategorie-Auswahl
+const kategorieSelect = document.getElementById('kategorieSelect');
+const neueKategorieDiv = document.getElementById('neueKategorieDiv');
+const neueKategorieInput = document.getElementById('neueKategorie');
+
+if (kategorieSelect) {
+    kategorieSelect.addEventListener('change', function() {
+        if (this.value === '__neu__') {
+            neueKategorieDiv.style.display = 'block';
+            neueKategorieInput.required = true;
+        } else {
+            neueKategorieDiv.style.display = 'none';
+            neueKategorieInput.required = false;
+        }
+    });
+
+    // Bei Form-Submit: Wenn neue Kategorie, dann Wert uebernehmen
+    document.querySelector('#addBausteinModal form')?.addEventListener('submit', function(e) {
+        if (kategorieSelect.value === '__neu__' && neueKategorieInput.value) {
+            kategorieSelect.innerHTML += `<option value="${neueKategorieInput.value}" selected>${neueKategorieInput.value}</option>`;
+            kategorieSelect.value = neueKategorieInput.value;
+        }
+    });
+}
+
+// Bild-Vorschau
+const bildInput = document.querySelector('input[name="bild"]');
+const bildPreview = document.getElementById('bildPreview');
+const previewImg = document.getElementById('previewImg');
+
+if (bildInput) {
+    bildInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                bildPreview.style.display = 'block';
+            };
+            reader.readAsDataURL(this.files[0]);
+        } else {
+            bildPreview.style.display = 'none';
+        }
+    });
+}
 </script>
 
 <?php require_once __DIR__ . '/templates/footer.php'; ?>
