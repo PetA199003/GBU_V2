@@ -791,12 +791,12 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Titel *</label>
+                                <label class="form-label">Tätigkeit *</label>
                                 <input type="text" class="form-control" name="titel" id="gef_titel" required>
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Beschreibung *</label>
+                                <label class="form-label">Gefährdung *</label>
                                 <textarea class="form-control" name="beschreibung" id="gef_beschreibung" rows="3" required></textarea>
                             </div>
 
