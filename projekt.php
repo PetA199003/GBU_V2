@@ -141,26 +141,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             break;
 
         case 'add_standard_gefaehrdungen':
-            // Standard-Gefährdungen basierend auf Projekt-Tags hinzufügen
-            $projektTagIds = $db->fetchAll(
-                "SELECT tag_id FROM projekt_tags WHERE projekt_id = ?",
-                [$projektId]
-            );
-            $tagIds = array_column($projektTagIds, 'tag_id');
+            // Standard-Gefährdungen hinzufügen (ist_standard = 1)
+            $gefaehrdungenBib = $db->fetchAll("
+                SELECT * FROM gefaehrdung_bibliothek WHERE ist_standard = 1
+            ");
 
-            if (empty($tagIds)) {
-                setFlashMessage('warning', 'Keine Tags für dieses Projekt definiert. Bitte den Administrator kontaktieren.');
+            if (empty($gefaehrdungenBib)) {
+                setFlashMessage('warning', 'Keine Standard-Gefährdungen in der Bibliothek vorhanden. Bitte markieren Sie Gefährdungen als "Standard-Gefährdung" in der Bibliothek.');
                 break;
             }
-
-            // Gefährdungen mit passenden Tags finden
-            $placeholders = implode(',', array_fill(0, count($tagIds), '?'));
-            $gefaehrdungenBib = $db->fetchAll("
-                SELECT DISTINCT gb.*
-                FROM gefaehrdung_bibliothek gb
-                JOIN gefaehrdung_bibliothek_tags gbt ON gb.id = gbt.gefaehrdung_id
-                WHERE gbt.tag_id IN ($placeholders)
-            ", $tagIds);
 
             $addedCount = 0;
             foreach ($gefaehrdungenBib as $gef) {
@@ -186,6 +175,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                         'stop_o' => $gef['stop_o'] ?? 0,
                         'stop_p' => $gef['stop_p'] ?? 0,
                         'massnahmen' => $gef['typische_massnahmen'],
+                        'verantwortlich' => $gef['verantwortlich'] ?? null,
+                        'schadenschwere_nach' => $gef['schadenschwere_nachher'] ?? null,
+                        'wahrscheinlichkeit_nach' => $gef['wahrscheinlichkeit_nachher'] ?? null,
                         'erstellt_von' => $userId
                     ]);
                     $addedCount++;
@@ -195,7 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             if ($addedCount > 0) {
                 setFlashMessage('success', "$addedCount Standard-Gefährdungen wurden hinzugefügt.");
             } else {
-                setFlashMessage('info', 'Alle passenden Standard-Gefährdungen sind bereits im Projekt vorhanden.');
+                setFlashMessage('info', 'Alle Standard-Gefährdungen sind bereits im Projekt vorhanden.');
             }
             break;
 

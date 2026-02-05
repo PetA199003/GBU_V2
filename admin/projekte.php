@@ -191,26 +191,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'add_standard_gefaehrdungen':
             $projektId = $_POST['projekt_id'];
 
-            // Projekt-Tags laden
-            $projektTagIds = $db->fetchAll(
-                "SELECT tag_id FROM projekt_tags WHERE projekt_id = ?",
-                [$projektId]
-            );
-            $tagIds = array_column($projektTagIds, 'tag_id');
+            // Standard-Gefährdungen hinzufügen (ist_standard = 1)
+            $gefaehrdungen = $db->fetchAll("
+                SELECT * FROM gefaehrdung_bibliothek WHERE ist_standard = 1
+            ");
 
-            if (empty($tagIds)) {
-                setFlashMessage('warning', 'Keine Tags für dieses Projekt definiert.');
+            if (empty($gefaehrdungen)) {
+                setFlashMessage('warning', 'Keine Standard-Gefährdungen in der Bibliothek vorhanden.');
                 break;
             }
-
-            // Gefährdungen mit passenden Tags finden
-            $placeholders = implode(',', array_fill(0, count($tagIds), '?'));
-            $gefaehrdungen = $db->fetchAll("
-                SELECT DISTINCT gb.*
-                FROM gefaehrdung_bibliothek gb
-                JOIN gefaehrdung_bibliothek_tags gbt ON gb.id = gbt.gefaehrdung_id
-                WHERE gbt.tag_id IN ($placeholders)
-            ", $tagIds);
 
             $addedCount = 0;
             foreach ($gefaehrdungen as $gef) {
@@ -236,13 +225,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'stop_o' => $gef['stop_o'] ?? 0,
                         'stop_p' => $gef['stop_p'] ?? 0,
                         'massnahmen' => $gef['typische_massnahmen'],
+                        'verantwortlich' => $gef['verantwortlich'] ?? null,
+                        'schadenschwere_nach' => $gef['schadenschwere_nachher'] ?? null,
+                        'wahrscheinlichkeit_nach' => $gef['wahrscheinlichkeit_nachher'] ?? null,
                         'erstellt_von' => $_SESSION['user_id']
                     ]);
                     $addedCount++;
                 }
             }
 
-            setFlashMessage('success', "$addedCount Standard-Gefährdungen wurden hinzugefügt.");
+            if ($addedCount > 0) {
+                setFlashMessage('success', "$addedCount Standard-Gefährdungen wurden hinzugefügt.");
+            } else {
+                setFlashMessage('info', 'Alle Standard-Gefährdungen sind bereits im Projekt vorhanden.');
+            }
             break;
     }
 
