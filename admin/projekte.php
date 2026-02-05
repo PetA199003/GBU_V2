@@ -124,18 +124,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         case 'delete':
             $id = $_POST['id'];
-            $count = $db->fetchOne(
-                "SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen WHERE projekt_id = ?",
-                [$id]
-            );
-            if ($count['cnt'] > 0) {
-                setFlashMessage('error', 'Projekt kann nicht gelöscht werden, da noch Gefährdungen existieren.');
-            } else {
-                $db->delete('projekt_tags', 'projekt_id = ?', [$id]);
-                $db->delete('benutzer_projekte', 'projekt_id = ?', [$id]);
-                $db->delete('projekte', 'id = ?', [$id]);
-                setFlashMessage('success', 'Projekt wurde gelöscht.');
+            // Alle zugehörigen Daten löschen
+            $db->delete('projekt_gefaehrdungen', 'projekt_id = ?', [$id]);
+            $db->delete('projekt_tags', 'projekt_id = ?', [$id]);
+            $db->delete('benutzer_projekte', 'projekt_id = ?', [$id]);
+            // Unterweisungen löschen
+            $unterweisungen = $db->fetchAll("SELECT id FROM unterweisungen WHERE projekt_id = ?", [$id]);
+            foreach ($unterweisungen as $u) {
+                $db->delete('unterweisung_bausteine', 'unterweisung_id = ?', [$u['id']]);
+                $db->delete('unterweisung_teilnehmer', 'unterweisung_id = ?', [$u['id']]);
             }
+            $db->delete('unterweisungen', 'projekt_id = ?', [$id]);
+            // Projekt löschen
+            $db->delete('projekte', 'id = ?', [$id]);
+            setFlashMessage('success', 'Projekt wurde vollständig gelöscht.');
             break;
 
         case 'archive':
@@ -462,6 +464,13 @@ require_once __DIR__ . '/../templates/header.php';
                                 onclick="editProjekt(<?= htmlspecialchars(json_encode($p)) ?>, <?= htmlspecialchars(json_encode(array_column($pTags, 'id'))) ?>)">
                             <i class="bi bi-pencil"></i>
                         </button>
+                        <form method="POST" class="d-inline" onsubmit="return confirm('Projekt &quot;<?= addslashes($p['name']) ?>&quot; wirklich endgültig löschen?\n\nAlle Gefährdungen, Unterweisungen und zugehörigen Daten werden unwiderruflich gelöscht!')">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="id" value="<?= $p['id'] ?>">
+                            <button type="submit" class="btn btn-outline-danger" title="Endgültig löschen">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
                         <?php else: ?>
                         <!-- Aktives Projekt -->
                         <form method="POST" class="d-inline">
@@ -482,15 +491,13 @@ require_once __DIR__ . '/../templates/header.php';
                                 <i class="bi bi-archive"></i>
                             </button>
                         </form>
-                        <?php if ($p['gef_count'] == 0): ?>
-                        <form method="POST" class="d-inline" onsubmit="return confirm('Projekt wirklich löschen?')">
+                        <form method="POST" class="d-inline" onsubmit="return confirm('Projekt &quot;<?= addslashes($p['name']) ?>&quot; wirklich endgültig löschen?\n\nAlle Gefährdungen (<?= $p['gef_count'] ?>), Unterweisungen und zugehörigen Daten werden unwiderruflich gelöscht!')">
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="id" value="<?= $p['id'] ?>">
-                            <button type="submit" class="btn btn-outline-danger" title="Löschen">
+                            <button type="submit" class="btn btn-outline-danger" title="Endgültig löschen">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </form>
-                        <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 </div>
