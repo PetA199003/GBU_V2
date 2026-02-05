@@ -49,6 +49,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'stop_t' => isset($_POST['stop_t']) ? 1 : 0,
                 'stop_o' => isset($_POST['stop_o']) ? 1 : 0,
                 'stop_p' => isset($_POST['stop_p']) ? 1 : 0,
+                'verantwortlich' => $_POST['verantwortlich'] ?: null,
+                'schadenschwere_nachher' => $_POST['schadenschwere_nachher'] ?: null,
+                'wahrscheinlichkeit_nachher' => $_POST['wahrscheinlichkeit_nachher'] ?: null,
                 'ist_standard' => isset($_POST['ist_standard']) ? 1 : 0
             ];
 
@@ -450,12 +453,12 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Titel *</label>
+                                <label class="form-label">Tätigkeit *</label>
                                 <input type="text" class="form-control" name="titel" id="gef_titel" required>
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Beschreibung *</label>
+                                <label class="form-label">Gefährdung *</label>
                                 <textarea class="form-control" name="beschreibung" id="gef_beschreibung" rows="3" required></textarea>
                             </div>
 
@@ -479,7 +482,7 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
                             </div>
 
                             <div class="alert alert-secondary py-2">
-                                <strong>Risikobewertung:</strong> <span id="risikoAnzeige">R = 8</span>
+                                <strong>Risikobewertung (vorher):</strong> <span id="risikoAnzeige">R = 8 (Hoch)</span>
                             </div>
                         </div>
 
@@ -518,8 +521,39 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Typische Maßnahmen</label>
-                                <textarea class="form-control" name="massnahmen" id="gef_massnahmen" rows="4" placeholder="Beschreiben Sie die typischen Schutzmaßnahmen..."></textarea>
+                                <label class="form-label">Maßnahmen</label>
+                                <textarea class="form-control" name="massnahmen" id="gef_massnahmen" rows="4" placeholder="Beschreiben Sie die Schutzmaßnahmen..."></textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Verantwortlich</label>
+                                <input type="text" class="form-control" name="verantwortlich" id="gef_verantwortlich">
+                            </div>
+
+                            <h6 class="mt-3">Risiko nach Maßnahmen</h6>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">S (nachher)</label>
+                                    <select class="form-select" name="schadenschwere_nachher" id="gef_schadenschwere_nachher" onchange="updateRisikoNachher()">
+                                        <option value="">-</option>
+                                        <?php foreach ($SCHADENSCHWERE as $val => $info): ?>
+                                        <option value="<?= $val ?>"><?= $val ?> - <?= $info['name'] ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">W (nachher)</label>
+                                    <select class="form-select" name="wahrscheinlichkeit_nachher" id="gef_wahrscheinlichkeit_nachher" onchange="updateRisikoNachher()">
+                                        <option value="">-</option>
+                                        <?php foreach ($WAHRSCHEINLICHKEIT as $val => $info): ?>
+                                        <option value="<?= $val ?>"><?= $val ?> - <?= $info['name'] ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-success py-2">
+                                <strong>Risikobewertung (nachher):</strong> <span id="risikoNachherAnzeige">-</span>
                             </div>
 
                             <hr>
@@ -586,6 +620,20 @@ function updateRisiko() {
     document.getElementById('risikoAnzeige').textContent = 'R = ' + r + ' (' + getRiskLevel(r) + ')';
 }
 
+function updateRisikoNachher() {
+    const s = document.getElementById('gef_schadenschwere_nachher').value;
+    const w = document.getElementById('gef_wahrscheinlichkeit_nachher').value;
+
+    if (s && w) {
+        const sVal = parseInt(s);
+        const wVal = parseInt(w);
+        const r = sVal * sVal * wVal;
+        document.getElementById('risikoNachherAnzeige').textContent = 'R = ' + r + ' (' + getRiskLevel(r) + ')';
+    } else {
+        document.getElementById('risikoNachherAnzeige').textContent = '-';
+    }
+}
+
 function getRiskLevel(r) {
     if (r <= 2) return 'Gering';
     if (r <= 4) return 'Mittel';
@@ -628,6 +676,9 @@ function editGefaehrdung(data, gefTags) {
     document.getElementById('stop_p').checked = data.stop_p == 1;
 
     document.getElementById('gef_massnahmen').value = data.typische_massnahmen || '';
+    document.getElementById('gef_verantwortlich').value = data.verantwortlich || '';
+    document.getElementById('gef_schadenschwere_nachher').value = data.schadenschwere_nachher || '';
+    document.getElementById('gef_wahrscheinlichkeit_nachher').value = data.wahrscheinlichkeit_nachher || '';
     document.getElementById('gef_ist_standard').checked = data.ist_standard == 1;
 
     // Tags setzen
@@ -640,6 +691,7 @@ function editGefaehrdung(data, gefTags) {
     }
 
     updateRisiko();
+    updateRisikoNachher();
     new bootstrap.Modal(document.getElementById('gefaehrdungModal')).show();
 }
 
@@ -651,6 +703,7 @@ document.getElementById('gefaehrdungModal').addEventListener('hidden.bs.modal', 
     document.querySelectorAll('.tag-check').forEach(cb => cb.checked = false);
     this.querySelector('form').reset();
     updateRisiko();
+    document.getElementById('risikoNachherAnzeige').textContent = '-';
 });
 
 // Initial
