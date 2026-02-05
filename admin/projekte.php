@@ -128,13 +128,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->delete('projekt_gefaehrdungen', 'projekt_id = ?', [$id]);
             $db->delete('projekt_tags', 'projekt_id = ?', [$id]);
             $db->delete('benutzer_projekte', 'projekt_id = ?', [$id]);
-            // Unterweisungen löschen
-            $unterweisungen = $db->fetchAll("SELECT id FROM unterweisungen WHERE projekt_id = ?", [$id]);
-            foreach ($unterweisungen as $u) {
-                $db->delete('unterweisung_bausteine', 'unterweisung_id = ?', [$u['id']]);
-                $db->delete('unterweisung_teilnehmer', 'unterweisung_id = ?', [$u['id']]);
+            // Unterweisungen löschen (falls Tabelle existiert)
+            try {
+                $unterweisungen = $db->fetchAll("SELECT id FROM unterweisungen WHERE projekt_id = ?", [$id]);
+                foreach ($unterweisungen as $u) {
+                    $db->delete('unterweisung_bausteine', 'unterweisung_id = ?', [$u['id']]);
+                    $db->delete('unterweisung_teilnehmer', 'unterweisung_id = ?', [$u['id']]);
+                }
+                $db->delete('unterweisungen', 'projekt_id = ?', [$id]);
+            } catch (PDOException $e) {
+                // Tabelle existiert nicht - ignorieren
             }
-            $db->delete('unterweisungen', 'projekt_id = ?', [$id]);
             // Projekt löschen
             $db->delete('projekte', 'id = ?', [$id]);
             setFlashMessage('success', 'Projekt wurde vollständig gelöscht.');
