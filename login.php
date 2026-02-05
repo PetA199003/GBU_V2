@@ -54,9 +54,9 @@ try {
 // Alte Einträge löschen (älter als Sperrzeit)
 $db->query("DELETE FROM login_attempts WHERE attempted_at < DATE_SUB(NOW(), INTERVAL ? MINUTE)", [$lockoutTime]);
 
-// Fehlversuche für diese IP zählen
+// Fehlversuche für diese IP zählen und den 5. Versuch (Sperrauslöser) finden
 $attempts = $db->fetchOne(
-    "SELECT COUNT(*) as cnt, MAX(attempted_at) as last_attempt
+    "SELECT COUNT(*) as cnt
      FROM login_attempts
      WHERE ip_address = ? AND attempted_at > DATE_SUB(NOW(), INTERVAL ? MINUTE)",
     [$clientIP, $lockoutTime]
@@ -67,10 +67,26 @@ $attemptCount = (int)($attempts['cnt'] ?? 0);
 // Prüfen ob IP gesperrt ist
 if ($attemptCount >= $maxAttempts) {
     $isLocked = true;
-    $lastAttempt = strtotime($attempts['last_attempt']);
-    $unlockTime = $lastAttempt + ($lockoutTime * 60);
-    $remainingTime = ceil(($unlockTime - time()) / 60);
-    if ($remainingTime < 1) $remainingTime = 1;
+
+    // Den 5. Versuch finden (der die Sperre ausgelöst hat)
+    $fifthAttempt = $db->fetchOne(
+        "SELECT attempted_at, TIMESTAMPDIFF(SECOND, attempted_at, NOW()) as seconds_ago
+         FROM login_attempts
+         WHERE ip_address = ?
+         ORDER BY attempted_at ASC
+         LIMIT 1 OFFSET ?",
+        [$clientIP, $maxAttempts - 1]
+    );
+
+    if ($fifthAttempt) {
+        $secondsAgo = (int)$fifthAttempt['seconds_ago'];
+        $lockoutSeconds = $lockoutTime * 60;
+        $remainingSeconds = $lockoutSeconds - $secondsAgo;
+        $remainingTime = ceil($remainingSeconds / 60);
+        if ($remainingTime < 1) $remainingTime = 1;
+    } else {
+        $remainingTime = $lockoutTime;
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$isLocked) {
