@@ -228,6 +228,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             ]);
             setFlashMessage('success', 'Unterkategorie wurde hinzugefügt.');
             break;
+
+        case 'update_projekt':
+            // Bearbeiter darf Projekt bearbeiten (aber nicht löschen)
+            $data = [
+                'name' => $_POST['name'] ?? '',
+                'location' => $_POST['location'] ?? '',
+                'zeitraum_von' => $_POST['zeitraum_von'] ?? null,
+                'zeitraum_bis' => $_POST['zeitraum_bis'] ?? null,
+                'aufbau_datum' => $_POST['aufbau_datum'] ?: null,
+                'abbau_datum' => $_POST['abbau_datum'] ?: null,
+                'indoor_outdoor' => $_POST['indoor_outdoor'] ?? 'indoor',
+                'beschreibung' => $_POST['beschreibung'] ?: null,
+                'status' => $_POST['status'] ?? 'geplant'
+            ];
+
+            if (empty($data['name']) || empty($data['location'])) {
+                setFlashMessage('error', 'Name und Location sind Pflichtfelder.');
+            } else {
+                $db->update('projekte', $data, 'id = :id', ['id' => $projektId]);
+
+                // Tags aktualisieren
+                $db->delete('projekt_tags', 'projekt_id = ?', [$projektId]);
+                if (!empty($_POST['tags']) && is_array($_POST['tags'])) {
+                    foreach ($_POST['tags'] as $tagId) {
+                        $db->query(
+                            "INSERT IGNORE INTO projekt_tags (projekt_id, tag_id) VALUES (?, ?)",
+                            [$projektId, $tagId]
+                        );
+                    }
+                }
+
+                // Indoor/Outdoor-Tags automatisch setzen
+                $autoTags = [];
+                if ($data['indoor_outdoor'] === 'indoor' || $data['indoor_outdoor'] === 'beides') {
+                    $indoorTag = $db->fetchOne("SELECT id FROM gefaehrdung_tags WHERE name = 'indoor'");
+                    if ($indoorTag) $autoTags[] = $indoorTag['id'];
+                }
+                if ($data['indoor_outdoor'] === 'outdoor' || $data['indoor_outdoor'] === 'beides') {
+                    $outdoorTag = $db->fetchOne("SELECT id FROM gefaehrdung_tags WHERE name = 'outdoor'");
+                    if ($outdoorTag) $autoTags[] = $outdoorTag['id'];
+                }
+                $standardTag = $db->fetchOne("SELECT id FROM gefaehrdung_tags WHERE name = 'standard'");
+                if ($standardTag) $autoTags[] = $standardTag['id'];
+
+                foreach ($autoTags as $tagId) {
+                    $db->query(
+                        "INSERT IGNORE INTO projekt_tags (projekt_id, tag_id) VALUES (?, ?)",
+                        [$projektId, $tagId]
+                    );
+                }
+
+                setFlashMessage('success', 'Projekt wurde aktualisiert.');
+
+                // Projekt-Daten neu laden
+                $projekt = $db->fetchOne("SELECT * FROM projekte WHERE id = ?", [$projektId]);
+            }
+            break;
     }
 
     redirect('projekt.php?id=' . $projektId);
@@ -304,6 +361,10 @@ uasort($bibliothekNachKategorie, fn($a, $b) => ($a['nummer'] ?? 999) <=> ($b['nu
 // Tags laden
 $tags = $db->fetchAll("SELECT * FROM gefaehrdung_tags ORDER BY sortierung");
 
+// Projekt-Tags laden (für Bearbeiten-Modal)
+$projektTags = $db->fetchAll("SELECT tag_id FROM projekt_tags WHERE projekt_id = ?", [$projektId]);
+$projektTagIds = array_column($projektTags, 'tag_id');
+
 $pageTitle = $projekt['name'] . ' - Gefährdungen';
 require_once __DIR__ . '/templates/header.php';
 
@@ -336,6 +397,9 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
         </div>
         <div class="d-flex gap-2">
             <?php if ($canEdit): ?>
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#projektBearbeitenModal" title="Projekt bearbeiten">
+                <i class="bi bi-pencil me-2"></i>Projekt bearbeiten
+            </button>
             <form method="POST" class="d-inline">
                 <input type="hidden" name="action" value="add_standard_gefaehrdungen">
                 <button type="submit" class="btn btn-outline-success" title="Standard-Gefährdungen basierend auf Projekt-Tags hinzufügen">
@@ -907,6 +971,104 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
         </div>
     </div>
 </div>
+
+<!-- Modal: Projekt bearbeiten -->
+<?php if ($canEdit): ?>
+<div class="modal fade" id="projektBearbeitenModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="action" value="update_projekt">
+
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Projekt bearbeiten</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">Projektname *</label>
+                            <input type="text" class="form-control" name="name" value="<?= sanitize($projekt['name']) ?>" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" name="status">
+                                <option value="geplant" <?= $projekt['status'] === 'geplant' ? 'selected' : '' ?>>Geplant</option>
+                                <option value="aktiv" <?= $projekt['status'] === 'aktiv' ? 'selected' : '' ?>>Aktiv</option>
+                                <option value="abgeschlossen" <?= $projekt['status'] === 'abgeschlossen' ? 'selected' : '' ?>>Abgeschlossen</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">Location *</label>
+                            <input type="text" class="form-control" name="location" value="<?= sanitize($projekt['location']) ?>" required placeholder="z.B. Messe München, Halle 5">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Indoor/Outdoor *</label>
+                            <select class="form-select" name="indoor_outdoor" required>
+                                <option value="indoor" <?= $projekt['indoor_outdoor'] === 'indoor' ? 'selected' : '' ?>>Indoor</option>
+                                <option value="outdoor" <?= $projekt['indoor_outdoor'] === 'outdoor' ? 'selected' : '' ?>>Outdoor</option>
+                                <option value="beides" <?= $projekt['indoor_outdoor'] === 'beides' ? 'selected' : '' ?>>Beides</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Zeitraum von *</label>
+                            <input type="date" class="form-control" name="zeitraum_von" value="<?= $projekt['zeitraum_von'] ?>" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Zeitraum bis *</label>
+                            <input type="date" class="form-control" name="zeitraum_bis" value="<?= $projekt['zeitraum_bis'] ?>" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Aufbau-Datum</label>
+                            <input type="date" class="form-control" name="aufbau_datum" value="<?= $projekt['aufbau_datum'] ?? '' ?>">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Abbau-Datum</label>
+                            <input type="date" class="form-control" name="abbau_datum" value="<?= $projekt['abbau_datum'] ?? '' ?>">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Zusätzliche Tags (für automatische Gefährdungen)</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            <?php foreach ($tags as $tag): ?>
+                            <?php if (!in_array($tag['name'], ['indoor', 'outdoor', 'standard'])): ?>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="tags[]" value="<?= $tag['id'] ?>" id="pedit_tag_<?= $tag['id'] ?>"
+                                       <?= in_array($tag['id'], $projektTagIds) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="pedit_tag_<?= $tag['id'] ?>">
+                                    <span class="badge" style="background-color: <?= $tag['farbe'] ?>"><?= sanitize($tag['name']) ?></span>
+                                </label>
+                            </div>
+                            <?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
+                        <small class="text-muted">Indoor/Outdoor wird automatisch basierend auf der Auswahl oben gesetzt.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Beschreibung</label>
+                        <textarea class="form-control" name="beschreibung" rows="3"><?= sanitize($projekt['beschreibung'] ?? '') ?></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <script>
 // Unterkategorien-Daten

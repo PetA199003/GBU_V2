@@ -322,8 +322,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             break;
 
         case 'update_sortierung':
-            // AJAX-Aufruf für Sortierung
+            // AJAX-Aufruf für Sortierung - nur Admin
             header('Content-Type: application/json');
+            if (!$isAdmin) {
+                echo json_encode(['success' => false, 'error' => 'Keine Berechtigung']);
+                exit;
+            }
             $sortierung = $_POST['sortierung'] ?? [];
             if (is_array($sortierung)) {
                 $pos = 1;
@@ -594,8 +598,8 @@ require_once __DIR__ . '/templates/header.php';
                 </div>
             </div>
 
-            <!-- Reihenfolge der ausgewählten Bausteine -->
-            <?php if (!empty($ausgewaehlteBausteine) && $canEdit): ?>
+            <!-- Reihenfolge der ausgewählten Bausteine - nur Admin -->
+            <?php if (!empty($ausgewaehlteBausteine) && $isAdmin): ?>
             <div class="card mt-4">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-sort-down me-2"></i>Reihenfolge ändern</h5>
