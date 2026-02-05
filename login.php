@@ -1,9 +1,10 @@
 <?php
 /**
- * Login-Seite
+ * Login-Seite mit IP-basierter Sperre nach 5 Fehlversuchen
  */
 
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/Auth.php';
 
 // Bereits angemeldet? Weiterleiten
@@ -13,17 +14,94 @@ if (isLoggedIn()) {
 
 $error = '';
 $auth = new Auth();
+$db = Database::getInstance();
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+// Konfiguration
+$maxAttempts = 5;        // Maximale Fehlversuche
+$lockoutTime = 10;       // Sperrzeit in Minuten
+
+// IP-Adresse ermitteln
+function getClientIP() {
+    if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
+        return $_SERVER['HTTP_CLIENT_IP'];
+    } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        // Kann mehrere IPs enthalten, erste nehmen
+        $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+        return trim($ips[0]);
+    }
+    return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+}
+
+$clientIP = getClientIP();
+$isLocked = false;
+$remainingTime = 0;
+
+// Login-Attempts Tabelle erstellen falls nicht vorhanden
+try {
+    $db->query("CREATE TABLE IF NOT EXISTS `login_attempts` (
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `ip_address` VARCHAR(45) NOT NULL,
+        `attempted_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        `benutzername` VARCHAR(100) DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `idx_ip_address` (`ip_address`),
+        KEY `idx_attempted_at` (`attempted_at`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+} catch (Exception $e) {
+    // Tabelle existiert bereits - ignorieren
+}
+
+// Alte Einträge löschen (älter als Sperrzeit)
+$db->query("DELETE FROM login_attempts WHERE attempted_at < DATE_SUB(NOW(), INTERVAL ? MINUTE)", [$lockoutTime]);
+
+// Fehlversuche für diese IP zählen
+$attempts = $db->fetchOne(
+    "SELECT COUNT(*) as cnt, MAX(attempted_at) as last_attempt
+     FROM login_attempts
+     WHERE ip_address = ? AND attempted_at > DATE_SUB(NOW(), INTERVAL ? MINUTE)",
+    [$clientIP, $lockoutTime]
+);
+
+$attemptCount = (int)($attempts['cnt'] ?? 0);
+
+// Prüfen ob IP gesperrt ist
+if ($attemptCount >= $maxAttempts) {
+    $isLocked = true;
+    $lastAttempt = strtotime($attempts['last_attempt']);
+    $unlockTime = $lastAttempt + ($lockoutTime * 60);
+    $remainingTime = ceil(($unlockTime - time()) / 60);
+    if ($remainingTime < 1) $remainingTime = 1;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$isLocked) {
     $benutzername = $_POST['benutzername'] ?? '';
     $passwort = $_POST['passwort'] ?? '';
 
     $result = $auth->login($benutzername, $passwort);
 
     if ($result['success']) {
+        // Erfolgreicher Login - alle Fehlversuche für diese IP löschen
+        $db->query("DELETE FROM login_attempts WHERE ip_address = ?", [$clientIP]);
         redirect('index.php');
     } else {
-        $error = $result['error'];
+        // Fehlgeschlagener Login - Versuch protokollieren
+        $db->insert('login_attempts', [
+            'ip_address' => $clientIP,
+            'benutzername' => $benutzername
+        ]);
+
+        $attemptCount++;
+        $remainingAttempts = $maxAttempts - $attemptCount;
+
+        if ($remainingAttempts <= 0) {
+            $isLocked = true;
+            $remainingTime = $lockoutTime;
+            $error = "Zu viele fehlgeschlagene Anmeldeversuche. Bitte warten Sie $lockoutTime Minuten.";
+        } elseif ($remainingAttempts <= 2) {
+            $error = $result['error'] . " (Noch $remainingAttempts Versuch" . ($remainingAttempts > 1 ? 'e' : '') . " übrig)";
+        } else {
+            $error = $result['error'];
+        }
     }
 }
 
@@ -50,13 +128,20 @@ $pageTitle = 'Anmelden';
                 <p class="text-muted">Bitte melden Sie sich an</p>
             </div>
 
-            <?php if ($error): ?>
+            <?php if ($isLocked): ?>
+            <div class="alert alert-danger">
+                <i class="bi bi-lock-fill me-2"></i>
+                <strong>Zugang gesperrt!</strong><br>
+                Zu viele fehlgeschlagene Anmeldeversuche.<br>
+                Bitte warten Sie noch <strong><?= $remainingTime ?> Minute<?= $remainingTime > 1 ? 'n' : '' ?></strong>.
+            </div>
+            <?php elseif ($error): ?>
             <div class="alert alert-danger">
                 <i class="bi bi-exclamation-circle me-2"></i><?= sanitize($error) ?>
             </div>
             <?php endif; ?>
 
-            <form method="POST" action="">
+            <form method="POST" action="" <?= $isLocked ? 'style="opacity: 0.5; pointer-events: none;"' : '' ?>>
                 <div class="mb-3">
                     <label for="benutzername" class="form-label">Benutzername oder E-Mail</label>
                     <div class="input-group">
