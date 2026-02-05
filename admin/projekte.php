@@ -67,7 +67,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         );
                     }
 
-                    setFlashMessage('success', 'Projekt wurde erstellt.');
+                    // Standard-Gefährdungen automatisch hinzufügen (ist_standard = 1)
+                    $standardGefaehrdungen = $db->fetchAll("
+                        SELECT * FROM gefaehrdung_bibliothek WHERE ist_standard = 1
+                    ");
+
+                    $addedCount = 0;
+                    foreach ($standardGefaehrdungen as $gef) {
+                        $db->insert('projekt_gefaehrdungen', [
+                            'projekt_id' => $projektId,
+                            'gefaehrdung_bibliothek_id' => $gef['id'],
+                            'gefaehrdungsart_id' => $gef['gefaehrdungsart_id'] ?? null,
+                            'kategorie_id' => $gef['kategorie_id'] ?? null,
+                            'unterkategorie_id' => $gef['unterkategorie_id'] ?? null,
+                            'titel' => $gef['titel'],
+                            'beschreibung' => $gef['beschreibung'],
+                            'schadenschwere' => $gef['standard_schadenschwere'] ?? 2,
+                            'wahrscheinlichkeit' => $gef['standard_wahrscheinlichkeit'] ?? 2,
+                            'stop_s' => $gef['stop_s'] ?? 0,
+                            'stop_t' => $gef['stop_t'] ?? 0,
+                            'stop_o' => $gef['stop_o'] ?? 0,
+                            'stop_p' => $gef['stop_p'] ?? 0,
+                            'massnahmen' => $gef['typische_massnahmen'],
+                            'verantwortlich' => $gef['verantwortlich'] ?? null,
+                            'schadenschwere_nach' => $gef['schadenschwere_nachher'] ?? null,
+                            'wahrscheinlichkeit_nach' => $gef['wahrscheinlichkeit_nachher'] ?? null,
+                            'erstellt_von' => $_SESSION['user_id']
+                        ]);
+                        $addedCount++;
+                    }
+
+                    $msg = 'Projekt wurde erstellt.';
+                    if ($addedCount > 0) {
+                        $msg .= " $addedCount Standard-Gefährdung(en) wurden automatisch hinzugefügt.";
+                    }
+                    setFlashMessage('success', $msg);
                 } else {
                     $id = $_POST['id'];
                     $db->update('projekte', $data, 'id = :id', ['id' => $id]);
