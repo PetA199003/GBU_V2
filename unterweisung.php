@@ -405,10 +405,10 @@ require_once __DIR__ . '/templates/header.php';
             <a href="<?= BASE_URL ?>/projekt.php?id=<?= $projektId ?>" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-2"></i>Zurück zum Projekt
             </a>
-            <a href="<?= BASE_URL ?>/api/export_unterweisung.php?id=<?= $unterweisungId ?>&type=unterweisung" class="btn btn-success" target="_blank">
+            <a href="<?= BASE_URL ?>/api/export_unterweisung.php?id=<?= $unterweisungId ?>&type=unterweisung" class="btn btn-success">
                 <i class="bi bi-file-pdf me-2"></i>Unterweisung drucken
             </a>
-            <a href="<?= BASE_URL ?>/api/export_unterweisung.php?id=<?= $unterweisungId ?>&type=teilnehmerliste" class="btn btn-primary" target="_blank">
+            <a href="<?= BASE_URL ?>/api/export_unterweisung.php?id=<?= $unterweisungId ?>&type=teilnehmerliste" class="btn btn-primary">
                 <i class="bi bi-file-pdf me-2"></i>Teilnehmerliste drucken
             </a>
         </div>
