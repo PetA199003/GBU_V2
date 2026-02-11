@@ -419,7 +419,7 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
 
 <!-- Modal: Gefährdung - gleiches Layout wie bei Projekten -->
 <div class="modal fade" id="gefaehrdungModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <form method="POST" id="gefaehrdungForm">
                 <input type="hidden" name="action" id="gef_action" value="create">
