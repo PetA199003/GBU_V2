@@ -88,6 +88,10 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gefährdungsbeurteilung - <?= htmlspecialchars($projekt['name']) ?></title>
     <style>
+        @page {
+            size: A4 landscape;
+            margin: 10mm;
+        }
         * {
             margin: 0;
             padding: 0;
@@ -95,80 +99,89 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
         }
         body {
             font-family: Arial, sans-serif;
-            font-size: 9pt;
+            font-size: 8pt;
             line-height: 1.3;
             padding: 10mm;
         }
-        h1 { font-size: 18pt; margin-bottom: 8px; }
-        h2 { font-size: 11pt; margin: 12px 0 5px; background: #0d6efd; color: white; padding: 4px 8px; }
+        h1 { font-size: 16pt; margin-bottom: 10px; }
+        h2 { font-size: 10pt; margin: 15px 0 8px; background: #0d6efd; color: white; padding: 5px 10px; page-break-after: avoid; }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             page-break-inside: auto;
+            font-size: 7.5pt;
         }
         tr { page-break-inside: avoid; page-break-after: auto; }
         th, td {
-            border: 1px solid #333;
-            padding: 3px 5px;
+            border: 1px solid #000;
+            padding: 4px 6px;
             text-align: left;
             vertical-align: top;
         }
         th {
-            background: #e9ecef;
+            background: #d9d9d9;
             font-weight: bold;
-            font-size: 8pt;
+            font-size: 7.5pt;
+            text-align: center;
         }
-        .header-table { margin-bottom: 10px; }
-        .header-table td { border: none; padding: 2px 5px; }
-        .risk-low { background: #92D050; }
-        .risk-medium { background: #FFFF00; }
-        .risk-high { background: #FFC000; }
-        .risk-very-high { background: #FF0000; color: white; }
-        .stop-s { background: #dc3545; color: white; padding: 1px 4px; border-radius: 2px; font-size: 7pt; }
-        .stop-t { background: #ffc107; color: black; padding: 1px 4px; border-radius: 2px; font-size: 7pt; }
-        .stop-o { background: #0dcaf0; color: black; padding: 1px 4px; border-radius: 2px; font-size: 7pt; }
-        .stop-p { background: #198754; color: white; padding: 1px 4px; border-radius: 2px; font-size: 7pt; }
+        .header-table { margin-bottom: 15px; border: none; }
+        .header-table td { border: none; padding: 2px 8px; font-size: 9pt; }
+        .risk-low { background: #92D050 !important; }
+        .risk-medium { background: #FFFF00 !important; }
+        .risk-high { background: #FFC000 !important; }
+        .risk-very-high { background: #FF0000 !important; color: white !important; }
+        .stop-badge { display: inline-block; padding: 1px 5px; border-radius: 2px; font-size: 7pt; font-weight: bold; margin-right: 2px; }
+        .stop-s { background: #dc3545; color: white; }
+        .stop-t { background: #ffc107; color: black; }
+        .stop-o { background: #0dcaf0; color: black; }
+        .stop-p { background: #198754; color: white; }
         .text-center { text-align: center; }
         .small { font-size: 7pt; }
-        .legend { margin-bottom: 10px; padding: 8px; background: #f9f9f9; border: 1px solid #ddd; font-size: 8pt; }
-        .legend-item { display: inline-block; margin-right: 12px; }
-        .signature-line { border-bottom: 1px solid #333; height: 30px; margin-bottom: 3px; }
+        .legend { margin-bottom: 15px; padding: 10px; background: #f5f5f5; border: 1px solid #ccc; font-size: 8pt; }
+        .legend-row { margin-bottom: 3px; }
+        .legend-item { display: inline-block; margin-right: 15px; }
+        .massnahme-item { margin-bottom: 3px; }
+        .massnahme-label { font-weight: bold; }
         @media print {
-            body { padding: 8mm; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            .no-print { display: none; }
-            .risk-low { background: #92D050 !important; -webkit-print-color-adjust: exact !important; }
-            .risk-medium { background: #FFFF00 !important; -webkit-print-color-adjust: exact !important; }
-            .risk-high { background: #FFC000 !important; -webkit-print-color-adjust: exact !important; }
-            .risk-very-high { background: #FF0000 !important; color: white !important; -webkit-print-color-adjust: exact !important; }
-            .stop-s, .stop-t, .stop-o, .stop-p { -webkit-print-color-adjust: exact !important; }
-            h2 { background: #0d6efd !important; color: white !important; -webkit-print-color-adjust: exact !important; }
+            @page {
+                size: A4 landscape;
+                margin: 8mm;
+            }
+            body { padding: 0; }
+            .no-print { display: none !important; }
+            h2 { background: #0d6efd !important; color: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            th { background: #d9d9d9 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .risk-low, .risk-medium, .risk-high, .risk-very-high { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .stop-s, .stop-t, .stop-o, .stop-p { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
         .print-btn {
             position: fixed;
             top: 10px;
             right: 10px;
-            padding: 8px 16px;
+            padding: 10px 20px;
             background: #0d6efd;
             color: white;
             border: none;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 14px;
             border-radius: 4px;
+            z-index: 1000;
         }
         .print-btn:hover { background: #0b5ed7; }
         .back-btn {
             position: fixed;
             top: 10px;
-            right: 180px;
-            padding: 8px 16px;
+            right: 160px;
+            padding: 10px 20px;
             background: #6c757d;
             color: white;
             border: none;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 14px;
             border-radius: 4px;
             text-decoration: none;
+            z-index: 1000;
         }
         .back-btn:hover { background: #5c636a; }
         .nummer { font-weight: bold; white-space: nowrap; }
@@ -178,7 +191,7 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
     <a href="javascript:history.back()" class="back-btn no-print">← Zurück</a>
     <button class="print-btn no-print" onclick="window.print()">🖨️ Drucken / PDF</button>
 
-    <h1>Gefaehrdungsbeurteilung</h1>
+    <h1>Gefährdungsbeurteilung - <?= htmlspecialchars($projekt['name']) ?></h1>
 
     <table class="header-table">
         <tr>
@@ -270,12 +283,38 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
                 <td class="text-center"><?= $gef['wahrscheinlichkeit'] ?></td>
                 <td class="text-center <?= $rClass ?>"><?= $rScore ?></td>
                 <td class="text-center">
-                    <?php if ($gef['stop_s']): ?><span class="stop-s">S</span> <?php endif; ?>
-                    <?php if ($gef['stop_t']): ?><span class="stop-t">T</span> <?php endif; ?>
-                    <?php if ($gef['stop_o']): ?><span class="stop-o">O</span> <?php endif; ?>
-                    <?php if ($gef['stop_p']): ?><span class="stop-p">P</span> <?php endif; ?>
+                    <?php if ($gef['stop_s']): ?><span class="stop-badge stop-s">S</span><?php endif; ?>
+                    <?php if ($gef['stop_t']): ?><span class="stop-badge stop-t">T</span><?php endif; ?>
+                    <?php if ($gef['stop_o']): ?><span class="stop-badge stop-o">O</span><?php endif; ?>
+                    <?php if ($gef['stop_p']): ?><span class="stop-badge stop-p">P</span><?php endif; ?>
                 </td>
-                <td class="small"><?= nl2br(htmlspecialchars($gef['massnahmen'] ?? '')) ?></td>
+                <td class="small">
+                    <?php
+                    $hasMassnahmen = false;
+                    if (!empty($gef['massnahme_s'])):
+                        $hasMassnahmen = true;
+                    ?>
+                    <div class="massnahme-item"><span class="massnahme-label stop-badge stop-s">S</span> <?= htmlspecialchars($gef['massnahme_s']) ?></div>
+                    <?php endif; ?>
+                    <?php if (!empty($gef['massnahme_t'])):
+                        $hasMassnahmen = true;
+                    ?>
+                    <div class="massnahme-item"><span class="massnahme-label stop-badge stop-t">T</span> <?= htmlspecialchars($gef['massnahme_t']) ?></div>
+                    <?php endif; ?>
+                    <?php if (!empty($gef['massnahme_o'])):
+                        $hasMassnahmen = true;
+                    ?>
+                    <div class="massnahme-item"><span class="massnahme-label stop-badge stop-o">O</span> <?= htmlspecialchars($gef['massnahme_o']) ?></div>
+                    <?php endif; ?>
+                    <?php if (!empty($gef['massnahme_p'])):
+                        $hasMassnahmen = true;
+                    ?>
+                    <div class="massnahme-item"><span class="massnahme-label stop-badge stop-p">P</span> <?= htmlspecialchars($gef['massnahme_p']) ?></div>
+                    <?php endif; ?>
+                    <?php if (!$hasMassnahmen && !empty($gef['massnahmen'])): ?>
+                    <?= nl2br(htmlspecialchars($gef['massnahmen'])) ?>
+                    <?php endif; ?>
+                </td>
                 <td class="text-center"><?= $gef['schadenschwere_nach'] ?: '-' ?></td>
                 <td class="text-center"><?= $gef['wahrscheinlichkeit_nach'] ?: '-' ?></td>
                 <td class="text-center <?= $rClassNach ?>"><?= $rScoreNach ?: '-' ?></td>
@@ -335,7 +374,10 @@ function generateExcel($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerNa
         'STOP-T',
         'STOP-O',
         'STOP-P',
-        'Maßnahmen',
+        'Maßnahme S (Substitution)',
+        'Maßnahme T (Technisch)',
+        'Maßnahme O (Organisatorisch)',
+        'Maßnahme P (Persönlich)',
         'S nach Maßnahme',
         'W nach Maßnahme',
         'R nach Maßnahme',
@@ -367,7 +409,10 @@ function generateExcel($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerNa
                 $gef['stop_t'] ? 'X' : '',
                 $gef['stop_o'] ? 'X' : '',
                 $gef['stop_p'] ? 'X' : '',
-                $gef['massnahmen'] ?? '',
+                $gef['massnahme_s'] ?? '',
+                $gef['massnahme_t'] ?? '',
+                $gef['massnahme_o'] ?? '',
+                $gef['massnahme_p'] ?? '',
                 $gef['schadenschwere_nach'] ?? '',
                 $gef['wahrscheinlichkeit_nach'] ?? '',
                 $gef['risikobewertung_nach'] ?? '',
