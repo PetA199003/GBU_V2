@@ -29,9 +29,9 @@ try {
 $currentUser = $db->fetchOne("SELECT * FROM benutzer WHERE id = ?", [$userId]);
 $userFirmaId = $currentUser['firma_id'] ?? null;
 
-// Kollegen aus dem gleichen Unternehmen laden (für Bearbeiter)
+// Kollegen aus dem gleichen Unternehmen laden (für alle Benutzer mit Firma)
 $kollegen = [];
-if ($userFirmaId && ($isEditor || $isAdmin)) {
+if ($userFirmaId) {
     $kollegen = $db->fetchAll("
         SELECT id, vorname, nachname, benutzername, rolle
         FROM benutzer
@@ -44,11 +44,16 @@ if ($userFirmaId && ($isEditor || $isAdmin)) {
 $tags = $db->fetchAll("SELECT * FROM gefaehrdung_tags ORDER BY sortierung");
 
 // Aktion verarbeiten
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($isEditor || $isAdmin)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     switch ($action) {
         case 'create':
+            // Nur Bearbeiter/Admin dürfen neue Projekte erstellen
+            if (!$isEditor && !$isAdmin) {
+                setFlashMessage('error', 'Sie haben keine Berechtigung, Projekte zu erstellen.');
+                redirect('projekte.php');
+            }
             $data = [
                 'name' => $_POST['name'] ?? '',
                 'location' => $_POST['location'] ?? '',
@@ -184,6 +189,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($isEditor || $isAdmin)) {
                 }
             }
             break;
+
+        case 'delete':
+            $projektId = $_POST['projekt_id'];
+
+            // Prüfen ob Benutzer der Ersteller des Projekts ist oder Admin
+            $projekt = $db->fetchOne("SELECT erstellt_von FROM projekte WHERE id = ?", [$projektId]);
+
+            if ($projekt && ($projekt['erstellt_von'] == $userId || $isAdmin)) {
+                // Alle verknüpften Daten löschen
+                $db->delete('projekt_gefaehrdungen', 'projekt_id = ?', [$projektId]);
+                $db->delete('projekt_tags', 'projekt_id = ?', [$projektId]);
+                $db->delete('benutzer_projekte', 'projekt_id = ?', [$projektId]);
+
+                // Unterweisungen löschen (falls Tabelle existiert)
+                try {
+                    $db->delete('unterweisungen', 'projekt_id = ?', [$projektId]);
+                } catch (Exception $e) {
+                    // Tabelle existiert möglicherweise nicht
+                }
+
+                // Projekt löschen
+                $db->delete('projekte', 'id = ?', [$projektId]);
+                setFlashMessage('success', 'Projekt wurde gelöscht.');
+            } else {
+                setFlashMessage('error', 'Sie können nur Ihre eigenen Projekte löschen.');
+            }
+            break;
     }
 
     redirect('projekte.php');
@@ -269,6 +301,59 @@ require_once __DIR__ . '/templates/header.php';
     </div>
     <?php endif; ?>
 </div>
+
+<!-- Modal: Benutzer zuweisen (für alle mit Kollegen) -->
+<?php if (!empty($kollegen)): ?>
+<div class="modal fade" id="zuweisungModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="action" value="assign_user">
+                <input type="hidden" name="projekt_id" id="zuweisung_projekt_id">
+
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Kollegen zuweisen</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">Sie können nur Kollegen aus Ihrem Unternehmen zuweisen.</p>
+
+                    <div class="mb-3">
+                        <label class="form-label">Kollege auswählen *</label>
+                        <select class="form-select" name="benutzer_id" required>
+                            <option value="">-- Bitte wählen --</option>
+                            <?php foreach ($kollegen as $kollege): ?>
+                            <option value="<?= $kollege['id'] ?>">
+                                <?= sanitize($kollege['vorname'] . ' ' . $kollege['nachname']) ?>
+                                (<?= $kollege['rolle'] == ROLE_ADMIN ? 'Admin' : ($kollege['rolle'] == ROLE_EDITOR ? 'Bearbeiter' : 'Betrachter') ?>)
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Berechtigung *</label>
+                        <select class="form-select" name="berechtigung" required>
+                            <option value="ansehen">Nur ansehen</option>
+                            <option value="bearbeiten">Bearbeiten</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Zuweisen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openZuweisungModal(projektId) {
+    document.getElementById('zuweisung_projekt_id').value = projektId;
+    new bootstrap.Modal(document.getElementById('zuweisungModal')).show();
+}
+</script>
+<?php endif; ?>
 
 <?php if ($isEditor || $isAdmin): ?>
 <!-- Modal: Neues Projekt -->
@@ -365,65 +450,6 @@ require_once __DIR__ . '/templates/header.php';
     </div>
 </div>
 
-<!-- Modal: Benutzer zuweisen -->
-<div class="modal fade" id="zuweisungModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form method="POST">
-                <input type="hidden" name="action" value="assign_user">
-                <input type="hidden" name="projekt_id" id="zuweisung_projekt_id">
-
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Kollegen zuweisen</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-muted small">Sie können nur Kollegen aus Ihrem Unternehmen zuweisen.</p>
-
-                    <?php if (empty($kollegen)): ?>
-                    <div class="alert alert-warning">
-                        <i class="bi bi-info-circle me-2"></i>
-                        Keine weiteren Kollegen in Ihrem Unternehmen gefunden.
-                    </div>
-                    <?php else: ?>
-                    <div class="mb-3">
-                        <label class="form-label">Kollege auswählen *</label>
-                        <select class="form-select" name="benutzer_id" required>
-                            <option value="">-- Bitte wählen --</option>
-                            <?php foreach ($kollegen as $kollege): ?>
-                            <option value="<?= $kollege['id'] ?>">
-                                <?= sanitize($kollege['vorname'] . ' ' . $kollege['nachname']) ?>
-                                (<?= $kollege['rolle'] == ROLE_ADMIN ? 'Admin' : ($kollege['rolle'] == ROLE_EDITOR ? 'Bearbeiter' : 'Betrachter') ?>)
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Berechtigung *</label>
-                        <select class="form-select" name="berechtigung" required>
-                            <option value="ansehen">Nur ansehen</option>
-                            <option value="bearbeiten">Bearbeiten</option>
-                        </select>
-                    </div>
-                    <?php endif; ?>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-                    <?php if (!empty($kollegen)): ?>
-                    <button type="submit" class="btn btn-primary">Zuweisen</button>
-                    <?php endif; ?>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script>
-function openZuweisungModal(projektId) {
-    document.getElementById('zuweisung_projekt_id').value = projektId;
-    new bootstrap.Modal(document.getElementById('zuweisungModal')).show();
-}
-</script>
 <?php endif; ?>
 
 <?php require_once __DIR__ . '/templates/footer.php'; ?>

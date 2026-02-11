@@ -5,6 +5,9 @@
  */
 $canEdit = ($p['berechtigung'] ?? 'ansehen') === 'bearbeiten' || hasRole(ROLE_ADMIN);
 $isEditorOrAdmin = hasRole(ROLE_EDITOR) || hasRole(ROLE_ADMIN);
+$isProjectOwner = ($p['erstellt_von'] ?? 0) == $userId;
+$canAssign = $canEdit && !empty($kollegen); // Jeder mit Bearbeitungsrecht und Kollegen kann zuweisen
+$canDelete = $isProjectOwner || hasRole(ROLE_ADMIN); // Nur Ersteller oder Admin kann löschen
 
 // Zugewiesene Benutzer laden
 $zugewieseneBenutzer = $db->fetchAll("
@@ -103,10 +106,19 @@ $zugewieseneBenutzer = $db->fetchAll("
                     <i class="bi bi-<?= $canEdit ? 'pencil' : 'eye' ?> me-2"></i>
                     <?= $canEdit ? 'Bearbeiten' : 'Ansehen' ?>
                 </a>
-                <?php if ($canEdit && $isEditorOrAdmin && !empty($kollegen)): ?>
+                <?php if ($canAssign): ?>
                 <button type="button" class="btn btn-outline-secondary" onclick="openZuweisungModal(<?= $p['id'] ?>)" title="Kollegen zuweisen">
                     <i class="bi bi-person-plus"></i>
                 </button>
+                <?php endif; ?>
+                <?php if ($canDelete): ?>
+                <form method="POST" class="d-inline" onsubmit="return confirm('Projekt wirklich löschen? Alle Gefährdungen und Zuweisungen werden ebenfalls gelöscht!');">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="projekt_id" value="<?= $p['id'] ?>">
+                    <button type="submit" class="btn btn-outline-danger" title="Projekt löschen">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </form>
                 <?php endif; ?>
             </div>
         </div>

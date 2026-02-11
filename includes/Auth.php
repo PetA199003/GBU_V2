@@ -113,7 +113,7 @@ class Auth {
             'email' => $user['email'],
             'vorname' => $user['vorname'],
             'nachname' => $user['nachname'],
-            'rolle' => $user['rolle'],
+            'rolle' => (int)$user['rolle'],
             'voller_name' => $user['vorname'] . ' ' . $user['nachname']
         ];
 

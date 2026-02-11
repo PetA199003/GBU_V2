@@ -89,7 +89,7 @@ function hasRole($requiredRole) {
     if (!$user) {
         return false;
     }
-    return $user['rolle'] >= $requiredRole;
+    return (int)$user['rolle'] >= (int)$requiredRole;
 }
 
 function requireLogin() {
