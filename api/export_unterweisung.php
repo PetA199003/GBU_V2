@@ -97,11 +97,11 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
             h2 { background: #FFC107 !important; -webkit-print-color-adjust: exact !important; }
         }
         .print-btn { position: fixed; top: 10px; right: 10px; padding: 10px 20px; background: #0d6efd; color: white; border: none; cursor: pointer; border-radius: 4px; }
-        .back-btn { position: fixed; top: 10px; right: 150px; padding: 10px 20px; background: #6c757d; color: white; border: none; cursor: pointer; border-radius: 4px; text-decoration: none; }
+        .back-btn { position: fixed; top: 10px; right: 200px; padding: 10px 20px; background: #6c757d; color: white; border: none; cursor: pointer; border-radius: 4px; text-decoration: none; }
     </style>
 </head>
 <body>
-    <a href="javascript:history.back()" class="back-btn no-print">← Zurück</a>
+    <a href="<?= BASE_URL ?>/unterweisung.php?projekt_id=<?= htmlspecialchars($unterweisung['projekt_id']) ?>" class="back-btn no-print">← Zurück zur Unterweisung</a>
     <button class="print-btn no-print" onclick="window.print()">Drucken / PDF</button>
 
     <h1>Regeln für Arbeiten bei Produktionen und Veranstaltungen</h1>
@@ -207,11 +207,11 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
             h1, .subtitle { background: #FFC107 !important; -webkit-print-color-adjust: exact !important; }
         }
         .print-btn { position: fixed; top: 10px; right: 10px; padding: 10px 20px; background: #0d6efd; color: white; border: none; cursor: pointer; border-radius: 4px; }
-        .back-btn { position: fixed; top: 10px; right: 150px; padding: 10px 20px; background: #6c757d; color: white; border: none; cursor: pointer; border-radius: 4px; text-decoration: none; }
+        .back-btn { position: fixed; top: 10px; right: 200px; padding: 10px 20px; background: #6c757d; color: white; border: none; cursor: pointer; border-radius: 4px; text-decoration: none; }
     </style>
 </head>
 <body>
-    <a href="javascript:history.back()" class="back-btn no-print">← Zurück</a>
+    <a href="<?= BASE_URL ?>/unterweisung.php?projekt_id=<?= htmlspecialchars($unterweisung['projekt_id']) ?>" class="back-btn no-print">← Zurück zur Unterweisung</a>
     <button class="print-btn no-print" onclick="window.print()">Drucken / PDF</button>
 
     <h1>Bestätigung der Unterweisung</h1>
