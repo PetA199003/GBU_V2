@@ -12,6 +12,38 @@ requireRole(ROLE_ADMIN);
 $auth = new Auth();
 $db = Database::getInstance();
 
+// Firmen-Tabelle erstellen falls nicht vorhanden
+try {
+    $db->query("CREATE TABLE IF NOT EXISTS `firmen` (
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `name` VARCHAR(200) NOT NULL,
+        `strasse` VARCHAR(200) DEFAULT NULL,
+        `plz` VARCHAR(10) DEFAULT NULL,
+        `ort` VARCHAR(100) DEFAULT NULL,
+        `land` VARCHAR(100) DEFAULT 'Schweiz',
+        `telefon` VARCHAR(50) DEFAULT NULL,
+        `email` VARCHAR(100) DEFAULT NULL,
+        `webseite` VARCHAR(200) DEFAULT NULL,
+        `aktiv` TINYINT(1) NOT NULL DEFAULT 1,
+        `erstellt_von` INT UNSIGNED DEFAULT NULL,
+        `erstellt_am` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        `aktualisiert_am` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // Spalte firma_id zu benutzer hinzufügen falls nicht vorhanden
+    $colExists = $db->fetchOne("SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'benutzer' AND COLUMN_NAME = 'firma_id'");
+    if ($colExists['cnt'] == 0) {
+        $db->query("ALTER TABLE benutzer ADD COLUMN firma_id INT UNSIGNED DEFAULT NULL AFTER rolle");
+    }
+} catch (Exception $e) {
+    // Ignorieren
+}
+
+// Firmen laden
+$firmen = $db->fetchAll("SELECT * FROM firmen WHERE aktiv = 1 ORDER BY name");
+
 // Aktion verarbeiten
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -29,11 +61,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             if ($result['success']) {
-                // Rolle setzen
-                $auth->updateUser($result['user_id'], ['rolle' => (int)$_POST['rolle']]);
+                // Rolle und Firma setzen
+                $updateData = ['rolle' => (int)$_POST['rolle']];
+                if (!empty($_POST['firma_id'])) {
+                    $updateData['firma_id'] = (int)$_POST['firma_id'];
+                }
+                $auth->updateUser($result['user_id'], $updateData);
                 setFlashMessage('success', 'Benutzer wurde erstellt.');
             } else {
                 setFlashMessage('error', implode(' ', $result['errors']));
+            }
+            break;
+
+        case 'create_firma':
+            $firmaName = trim($_POST['firma_name'] ?? '');
+            if (!empty($firmaName)) {
+                $db->insert('firmen', [
+                    'name' => $firmaName,
+                    'ort' => $_POST['firma_ort'] ?? null,
+                    'erstellt_von' => $_SESSION['user_id']
+                ]);
+                setFlashMessage('success', 'Unternehmen wurde erstellt.');
+            }
+            break;
+
+        case 'delete_firma':
+            $firmaId = (int)$_POST['firma_id'];
+            // Prüfen ob noch Benutzer zugewiesen sind
+            $userCount = $db->fetchOne("SELECT COUNT(*) as cnt FROM benutzer WHERE firma_id = ?", [$firmaId]);
+            if ($userCount['cnt'] > 0) {
+                setFlashMessage('error', 'Unternehmen kann nicht gelöscht werden, da noch Benutzer zugewiesen sind.');
+            } else {
+                $db->delete('firmen', 'id = ?', [$firmaId]);
+                setFlashMessage('success', 'Unternehmen wurde gelöscht.');
             }
             break;
 
@@ -70,7 +130,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'vorname' => $_POST['vorname'] ?? '',
                     'nachname' => $_POST['nachname'] ?? '',
                     'email' => $_POST['email'] ?? '',
-                    'rolle' => (int)$_POST['rolle']
+                    'rolle' => (int)$_POST['rolle'],
+                    'firma_id' => !empty($_POST['firma_id']) ? (int)$_POST['firma_id'] : null
                 ];
 
                 $auth->updateUser($userId, $updateData);
