@@ -427,7 +427,7 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
             <a href="<?= BASE_URL ?>/unterweisung.php?projekt_id=<?= $projektId ?>" class="btn btn-warning">
                 <i class="bi bi-clipboard-check me-2"></i>Sicherheitsunterweisung
             </a>
-            <a href="<?= BASE_URL ?>/api/export.php?id=<?= $projektId ?>&format=pdf" target="_blank" class="btn btn-outline-secondary">
+            <a href="<?= BASE_URL ?>/api/export.php?id=<?= $projektId ?>&format=pdf" class="btn btn-outline-secondary">
                 <i class="bi bi-file-earmark-pdf me-2"></i>PDF / Drucken
             </a>
         </div>
