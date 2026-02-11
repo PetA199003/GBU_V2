@@ -370,8 +370,55 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
                                         ?>
                                     </td>
                                     <td>
-                                        <?php if ($gef['typische_massnahmen']): ?>
-                                        <small><?= sanitize(substr($gef['typische_massnahmen'], 0, 60)) ?>...</small>
+                                        <?php
+                                        // STOP-Maßnahmen einzeln anzeigen
+                                        $hasMassnahmen = false;
+                                        $allMassnahmenText = [];
+
+                                        if (!empty($gef['massnahme_s'])) {
+                                            $hasMassnahmen = true;
+                                            $allMassnahmenText[] = "S: " . $gef['massnahme_s'];
+                                        }
+                                        if (!empty($gef['massnahme_t'])) {
+                                            $hasMassnahmen = true;
+                                            $allMassnahmenText[] = "T: " . $gef['massnahme_t'];
+                                        }
+                                        if (!empty($gef['massnahme_o'])) {
+                                            $hasMassnahmen = true;
+                                            $allMassnahmenText[] = "O: " . $gef['massnahme_o'];
+                                        }
+                                        if (!empty($gef['massnahme_p'])) {
+                                            $hasMassnahmen = true;
+                                            $allMassnahmenText[] = "P: " . $gef['massnahme_p'];
+                                        }
+
+                                        // Fallback auf altes Feld
+                                        if (!$hasMassnahmen && !empty($gef['typische_massnahmen'])) {
+                                            $hasMassnahmen = true;
+                                            $allMassnahmenText[] = $gef['typische_massnahmen'];
+                                        }
+
+                                        $tooltipText = implode("\n\n", $allMassnahmenText);
+                                        ?>
+                                        <?php if ($hasMassnahmen): ?>
+                                        <div class="massnahmen-preview" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-html="true"
+                                             title="<?= htmlspecialchars(nl2br(sanitize($tooltipText))) ?>" style="cursor: help;">
+                                            <?php if (!empty($gef['massnahme_s'])): ?>
+                                            <div><span class="badge bg-danger" style="font-size:0.6rem">S</span> <small><?= sanitize(substr($gef['massnahme_s'], 0, 30)) ?><?= strlen($gef['massnahme_s']) > 30 ? '...' : '' ?></small></div>
+                                            <?php endif; ?>
+                                            <?php if (!empty($gef['massnahme_t'])): ?>
+                                            <div><span class="badge bg-warning text-dark" style="font-size:0.6rem">T</span> <small><?= sanitize(substr($gef['massnahme_t'], 0, 30)) ?><?= strlen($gef['massnahme_t']) > 30 ? '...' : '' ?></small></div>
+                                            <?php endif; ?>
+                                            <?php if (!empty($gef['massnahme_o'])): ?>
+                                            <div><span class="badge bg-info" style="font-size:0.6rem">O</span> <small><?= sanitize(substr($gef['massnahme_o'], 0, 30)) ?><?= strlen($gef['massnahme_o']) > 30 ? '...' : '' ?></small></div>
+                                            <?php endif; ?>
+                                            <?php if (!empty($gef['massnahme_p'])): ?>
+                                            <div><span class="badge bg-success" style="font-size:0.6rem">P</span> <small><?= sanitize(substr($gef['massnahme_p'], 0, 30)) ?><?= strlen($gef['massnahme_p']) > 30 ? '...' : '' ?></small></div>
+                                            <?php endif; ?>
+                                            <?php if (empty($gef['massnahme_s']) && empty($gef['massnahme_t']) && empty($gef['massnahme_o']) && empty($gef['massnahme_p']) && !empty($gef['typische_massnahmen'])): ?>
+                                            <small><?= sanitize(substr($gef['typische_massnahmen'], 0, 50)) ?><?= strlen($gef['typische_massnahmen']) > 50 ? '...' : '' ?></small>
+                                            <?php endif; ?>
+                                        </div>
                                         <?php else: ?>
                                         <span class="text-muted">-</span>
                                         <?php endif; ?>
@@ -783,6 +830,14 @@ document.getElementById('gefaehrdungModal').addEventListener('hidden.bs.modal', 
 
 // Initial
 updateRisiko();
+
+// Tooltips initialisieren
+document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+    new bootstrap.Tooltip(el, {
+        container: 'body',
+        trigger: 'hover'
+    });
+});
 </script>
 
 <?php require_once __DIR__ . '/../templates/footer.php'; ?>
