@@ -172,7 +172,7 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
         .back-btn {
             position: fixed;
             top: 10px;
-            right: 160px;
+            right: 200px;
             padding: 10px 20px;
             background: #6c757d;
             color: white;
