@@ -146,15 +146,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $benutzerId = $_POST['benutzer_id'];
             $berechtigung = $_POST['berechtigung'] ?? 'ansehen';
 
-            // Prüfen ob Benutzer Zugriff auf das Projekt hat
+            // Prüfen ob Benutzer Zugriff auf das Projekt hat (Bearbeiter-Berechtigung)
             $hasAccess = $db->fetchOne("
                 SELECT id FROM benutzer_projekte WHERE projekt_id = ? AND benutzer_id = ? AND berechtigung = 'bearbeiten'
             ", [$projektId, $userId]);
 
+            // Prüfen ob Benutzer der Ersteller des Projekts ist
+            $projektData = $db->fetchOne("SELECT erstellt_von FROM projekte WHERE id = ?", [$projektId]);
+            $isOwner = $projektData && $projektData['erstellt_von'] == $userId;
+
             // Prüfen ob zugewiesener Benutzer aus gleichem Unternehmen ist
             $targetUser = $db->fetchOne("SELECT firma_id FROM benutzer WHERE id = ?", [$benutzerId]);
 
-            if (($hasAccess || $isAdmin) && ($targetUser['firma_id'] == $userFirmaId || $isAdmin)) {
+            if (($hasAccess || $isOwner || $isAdmin) && ($targetUser['firma_id'] == $userFirmaId || $isAdmin)) {
                 $exists = $db->fetchOne("SELECT id FROM benutzer_projekte WHERE benutzer_id = ? AND projekt_id = ?", [$benutzerId, $projektId]);
 
                 if (!$exists) {
@@ -183,7 +187,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     SELECT id FROM benutzer_projekte WHERE projekt_id = ? AND benutzer_id = ? AND berechtigung = 'bearbeiten'
                 ", [$projektId, $userId]);
 
-                if ($hasAccess || $isAdmin) {
+                // Prüfen ob Benutzer der Ersteller des Projekts ist
+                $projektData = $db->fetchOne("SELECT erstellt_von FROM projekte WHERE id = ?", [$projektId]);
+                $isOwner = $projektData && $projektData['erstellt_von'] == $userId;
+
+                if ($hasAccess || $isOwner || $isAdmin) {
                     $db->delete('benutzer_projekte', 'benutzer_id = ? AND projekt_id = ?', [$benutzerId, $projektId]);
                     setFlashMessage('success', 'Benutzer wurde vom Projekt entfernt.');
                 }

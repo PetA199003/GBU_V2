@@ -6,7 +6,8 @@
 $canEdit = ($p['berechtigung'] ?? 'ansehen') === 'bearbeiten' || hasRole(ROLE_ADMIN);
 $isEditorOrAdmin = hasRole(ROLE_EDITOR) || hasRole(ROLE_ADMIN);
 $isProjectOwner = ($p['erstellt_von'] ?? 0) == $userId;
-$canAssign = $canEdit && !empty($kollegen); // Jeder mit Bearbeitungsrecht und Kollegen kann zuweisen
+// Zuweisen kann: Ersteller ODER jemand mit Bearbeitungsrecht - UND es müssen Kollegen existieren
+$canAssign = ($isProjectOwner || $canEdit) && !empty($kollegen);
 $canDelete = $isProjectOwner || hasRole(ROLE_ADMIN); // Nur Ersteller oder Admin kann löschen
 
 // Zugewiesene Benutzer laden
