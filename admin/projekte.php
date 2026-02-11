@@ -26,7 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'abbau_datum' => $_POST['abbau_datum'] ?: null,
                 'indoor_outdoor' => $_POST['indoor_outdoor'] ?? 'indoor',
                 'beschreibung' => $_POST['beschreibung'] ?: null,
-                'status' => $_POST['status'] ?? 'geplant'
+                'status' => $_POST['status'] ?? 'geplant',
+                'firma_id' => !empty($_POST['firma_id']) ? (int)$_POST['firma_id'] : null
             ];
 
             if (empty($data['name']) || empty($data['location'])) {
@@ -259,26 +260,32 @@ $projekte = $db->fetchAll("
     SELECT p.*,
            CONCAT(b.vorname, ' ', b.nachname) as erstellt_von_name,
            (SELECT COUNT(*) FROM benutzer_projekte WHERE projekt_id = p.id) as benutzer_count,
-           (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id) as gef_count
+           (SELECT COUNT(*) FROM projekt_gefaehrdungen WHERE projekt_id = p.id) as gef_count,
+           f.name as firma_name
     FROM projekte p
     LEFT JOIN benutzer b ON p.erstellt_von = b.id
+    LEFT JOIN firmen f ON p.firma_id = f.id
     WHERE p.status " . ($showArchived ? "= 'archiviert'" : "!= 'archiviert'") . "
-    ORDER BY p.zeitraum_von DESC
+    ORDER BY f.name, p.zeitraum_von DESC
 ");
 
 // Anzahl archivierter Projekte
 $archivedCount = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekte WHERE status = 'archiviert'")['cnt'];
 
-// Alle Benutzer laden (für Zuweisung)
+// Alle Benutzer laden (für Zuweisung) - mit Firma
 $alleBenutzer = $db->fetchAll("
-    SELECT id, vorname, nachname, benutzername, rolle
-    FROM benutzer
-    WHERE aktiv = 1
-    ORDER BY nachname, vorname
+    SELECT b.id, b.vorname, b.nachname, b.benutzername, b.rolle, f.name as firma_name
+    FROM benutzer b
+    LEFT JOIN firmen f ON b.firma_id = f.id
+    WHERE b.aktiv = 1
+    ORDER BY f.name, b.nachname, b.vorname
 ");
 
 // Tags laden
 $tags = $db->fetchAll("SELECT * FROM gefaehrdung_tags ORDER BY sortierung");
+
+// Firmen laden
+$firmen = $db->fetchAll("SELECT * FROM firmen WHERE aktiv = 1 ORDER BY name");
 
 $pageTitle = 'Projektverwaltung';
 require_once __DIR__ . '/../templates/header.php';
@@ -341,6 +348,9 @@ require_once __DIR__ . '/../templates/header.php';
                         <small class="text-muted">
                             <i class="bi bi-geo-alt me-1"></i><?= sanitize($p['location']) ?>
                         </small>
+                        <?php if (!empty($p['firma_name'])): ?>
+                        <br><span class="badge bg-info mt-1"><?= sanitize($p['firma_name']) ?></span>
+                        <?php endif; ?>
                     </div>
                     <?php
                     $statusColors = [
@@ -435,7 +445,10 @@ require_once __DIR__ . '/../templates/header.php';
                         <select name="benutzer_id" class="form-select form-select-sm" required style="flex: 2;">
                             <option value="">Benutzer...</option>
                             <?php foreach ($alleBenutzer as $bu): ?>
-                            <option value="<?= $bu['id'] ?>"><?= sanitize($bu['vorname'] . ' ' . $bu['nachname']) ?></option>
+                            <option value="<?= $bu['id'] ?>">
+                                <?= sanitize($bu['vorname'] . ' ' . $bu['nachname']) ?>
+                                <?= $bu['firma_name'] ? ' (' . sanitize($bu['firma_name']) . ')' : '' ?>
+                            </option>
                             <?php endforeach; ?>
                         </select>
                         <select name="berechtigung" class="form-select form-select-sm" style="flex: 1;">
@@ -526,11 +539,20 @@ require_once __DIR__ . '/../templates/header.php';
                 </div>
                 <div class="modal-body">
                     <div class="row">
-                        <div class="col-md-8 mb-3">
+                        <div class="col-md-5 mb-3">
                             <label class="form-label">Projektname *</label>
                             <input type="text" class="form-control" name="name" id="p_name" required>
                         </div>
                         <div class="col-md-4 mb-3">
+                            <label class="form-label">Unternehmen</label>
+                            <select class="form-select" name="firma_id" id="p_firma_id">
+                                <option value="">-- Kein Unternehmen --</option>
+                                <?php foreach ($firmen as $firma): ?>
+                                <option value="<?= $firma['id'] ?>"><?= sanitize($firma['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
                             <label class="form-label">Status</label>
                             <select class="form-select" name="status" id="p_status">
                                 <option value="geplant">Geplant</option>
@@ -615,6 +637,7 @@ function editProjekt(data, tagIds) {
     document.getElementById('projekt_id').value = data.id;
     document.getElementById('projektModalTitle').textContent = 'Projekt bearbeiten';
     document.getElementById('p_name').value = data.name;
+    document.getElementById('p_firma_id').value = data.firma_id || '';
     document.getElementById('p_location').value = data.location;
     document.getElementById('p_zeitraum_von').value = data.zeitraum_von;
     document.getElementById('p_zeitraum_bis').value = data.zeitraum_bis;

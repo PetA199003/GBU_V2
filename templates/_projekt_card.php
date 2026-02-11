@@ -4,16 +4,31 @@
  * Erwartet: $p (Projekt-Array mit berechtigung)
  */
 $canEdit = ($p['berechtigung'] ?? 'ansehen') === 'bearbeiten' || hasRole(ROLE_ADMIN);
+$isEditorOrAdmin = hasRole(ROLE_EDITOR) || hasRole(ROLE_ADMIN);
+
+// Zugewiesene Benutzer laden
+$zugewieseneBenutzer = $db->fetchAll("
+    SELECT b.id, b.vorname, b.nachname, bp.berechtigung
+    FROM benutzer b
+    JOIN benutzer_projekte bp ON b.id = bp.benutzer_id
+    WHERE bp.projekt_id = ?
+    ORDER BY b.nachname
+", [$p['id']]);
 ?>
 <div class="col-lg-4 col-md-6 mb-4 projekt-card" data-status="<?= $p['status'] ?>">
     <div class="card h-100 border-<?= $p['status'] === 'aktiv' ? 'success' : ($p['status'] === 'geplant' ? 'warning' : 'secondary') ?>">
         <div class="card-header">
-            <h5 class="mb-0">
-                <?= sanitize($p['name']) ?>
-            </h5>
-            <small class="text-muted">
-                <i class="bi bi-geo-alt me-1"></i><?= sanitize($p['location']) ?>
-            </small>
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h5 class="mb-0"><?= sanitize($p['name']) ?></h5>
+                    <small class="text-muted">
+                        <i class="bi bi-geo-alt me-1"></i><?= sanitize($p['location']) ?>
+                    </small>
+                </div>
+                <?php if (!empty($p['firma_name'])): ?>
+                <span class="badge bg-info"><?= sanitize($p['firma_name']) ?></span>
+                <?php endif; ?>
+            </div>
         </div>
         <div class="card-body">
             <div class="row mb-3">
@@ -57,12 +72,43 @@ $canEdit = ($p['berechtigung'] ?? 'ansehen') === 'bearbeiten' || hasRole(ROLE_AD
                     <strong><?= $p['gefaehrdungen_count'] ?? 0 ?></strong> Gefährdungen
                 </div>
             </div>
+
+            <!-- Zugewiesene Benutzer -->
+            <?php if (!empty($zugewieseneBenutzer)): ?>
+            <div class="mt-3 pt-3 border-top">
+                <small class="text-muted d-block mb-2">
+                    <i class="bi bi-people me-1"></i>Zugewiesen (<?= count($zugewieseneBenutzer) ?>):
+                </small>
+                <div class="d-flex flex-wrap gap-1">
+                    <?php foreach ($zugewieseneBenutzer as $bu): ?>
+                    <span class="badge bg-<?= $bu['berechtigung'] === 'bearbeiten' ? 'primary' : 'secondary' ?>" title="<?= $bu['berechtigung'] === 'bearbeiten' ? 'Bearbeiter' : 'Betrachter' ?>">
+                        <?= sanitize($bu['vorname'][0] . '. ' . $bu['nachname']) ?>
+                        <?php if ($canEdit && $bu['id'] != $userId): ?>
+                        <form method="POST" class="d-inline" style="margin:0">
+                            <input type="hidden" name="action" value="remove_user">
+                            <input type="hidden" name="projekt_id" value="<?= $p['id'] ?>">
+                            <input type="hidden" name="benutzer_id" value="<?= $bu['id'] ?>">
+                            <button type="submit" class="btn-close btn-close-white ms-1" style="font-size: 0.5rem;" onclick="return confirm('Benutzer entfernen?')"></button>
+                        </form>
+                        <?php endif; ?>
+                    </span>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
         <div class="card-footer">
-            <a href="<?= BASE_URL ?>/projekt.php?id=<?= $p['id'] ?>" class="btn btn-primary w-100">
-                <i class="bi bi-<?= $canEdit ? 'pencil' : 'eye' ?> me-2"></i>
-                <?= $canEdit ? 'Bearbeiten' : 'Ansehen' ?>
-            </a>
+            <div class="d-flex gap-2">
+                <a href="<?= BASE_URL ?>/projekt.php?id=<?= $p['id'] ?>" class="btn btn-primary flex-grow-1">
+                    <i class="bi bi-<?= $canEdit ? 'pencil' : 'eye' ?> me-2"></i>
+                    <?= $canEdit ? 'Bearbeiten' : 'Ansehen' ?>
+                </a>
+                <?php if ($canEdit && $isEditorOrAdmin && !empty($kollegen)): ?>
+                <button type="button" class="btn btn-outline-secondary" onclick="openZuweisungModal(<?= $p['id'] ?>)" title="Kollegen zuweisen">
+                    <i class="bi bi-person-plus"></i>
+                </button>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 </div>

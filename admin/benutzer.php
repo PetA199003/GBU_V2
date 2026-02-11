@@ -153,22 +153,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('admin/benutzer.php');
 }
 
-$users = $auth->getAllUsers();
+// Benutzer mit Firma laden
+$users = $db->fetchAll("
+    SELECT b.*, f.name as firma_name
+    FROM benutzer b
+    LEFT JOIN firmen f ON b.firma_id = f.id
+    ORDER BY f.name, b.nachname, b.vorname
+");
+
+// Firmen neu laden (nach möglichen Änderungen)
+$firmen = $db->fetchAll("SELECT * FROM firmen WHERE aktiv = 1 ORDER BY name");
 
 $pageTitle = 'Benutzerverwaltung';
 require_once __DIR__ . '/../templates/header.php';
 ?>
 
-<div class="container">
+<div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-0">
                 <i class="bi bi-people me-2"></i>Benutzerverwaltung
             </h1>
         </div>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#benutzerModal">
-            <i class="bi bi-plus-lg me-2"></i>Neuer Benutzer
-        </button>
+        <div class="btn-group">
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#firmaModal">
+                <i class="bi bi-building me-2"></i>Unternehmen verwalten
+            </button>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#benutzerModal">
+                <i class="bi bi-plus-lg me-2"></i>Neuer Benutzer
+            </button>
+        </div>
     </div>
 
     <div class="card">
@@ -179,6 +193,7 @@ require_once __DIR__ . '/../templates/header.php';
                         <tr>
                             <th>ID</th>
                             <th>Name</th>
+                            <th>Unternehmen</th>
                             <th>Benutzername</th>
                             <th>E-Mail</th>
                             <th>Rolle</th>
@@ -193,6 +208,13 @@ require_once __DIR__ . '/../templates/header.php';
                             <td><?= $user['id'] ?></td>
                             <td>
                                 <strong><?= sanitize($user['vorname']) ?> <?= sanitize($user['nachname']) ?></strong>
+                            </td>
+                            <td>
+                                <?php if ($user['firma_name']): ?>
+                                <span class="badge bg-info"><?= sanitize($user['firma_name']) ?></span>
+                                <?php else: ?>
+                                <span class="text-muted">-</span>
+                                <?php endif; ?>
                             </td>
                             <td><?= sanitize($user['benutzername']) ?></td>
                             <td><?= sanitize($user['email']) ?></td>
@@ -298,13 +320,24 @@ require_once __DIR__ . '/../templates/header.php';
                         <label class="form-label">Passwort *</label>
                         <input type="password" class="form-control" name="passwort" required minlength="6">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Rolle *</label>
-                        <select class="form-select" name="rolle" required>
-                            <option value="<?= ROLE_VIEWER ?>">Betrachter</option>
-                            <option value="<?= ROLE_EDITOR ?>">Bearbeiter</option>
-                            <option value="<?= ROLE_ADMIN ?>">Administrator</option>
-                        </select>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Rolle *</label>
+                            <select class="form-select" name="rolle" required>
+                                <option value="<?= ROLE_VIEWER ?>">Betrachter</option>
+                                <option value="<?= ROLE_EDITOR ?>">Bearbeiter</option>
+                                <option value="<?= ROLE_ADMIN ?>">Administrator</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Unternehmen</label>
+                            <select class="form-select" name="firma_id">
+                                <option value="">-- Kein Unternehmen --</option>
+                                <?php foreach ($firmen as $firma): ?>
+                                <option value="<?= $firma['id'] ?>"><?= sanitize($firma['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -343,13 +376,24 @@ require_once __DIR__ . '/../templates/header.php';
                         <label class="form-label">E-Mail *</label>
                         <input type="email" class="form-control" name="email" id="edit_email" required>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Rolle *</label>
-                        <select class="form-select" name="rolle" id="edit_rolle" required>
-                            <option value="<?= ROLE_VIEWER ?>">Betrachter</option>
-                            <option value="<?= ROLE_EDITOR ?>">Bearbeiter</option>
-                            <option value="<?= ROLE_ADMIN ?>">Administrator</option>
-                        </select>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Rolle *</label>
+                            <select class="form-select" name="rolle" id="edit_rolle" required>
+                                <option value="<?= ROLE_VIEWER ?>">Betrachter</option>
+                                <option value="<?= ROLE_EDITOR ?>">Bearbeiter</option>
+                                <option value="<?= ROLE_ADMIN ?>">Administrator</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Unternehmen</label>
+                            <select class="form-select" name="firma_id" id="edit_firma_id">
+                                <option value="">-- Kein Unternehmen --</option>
+                                <?php foreach ($firmen as $firma): ?>
+                                <option value="<?= $firma['id'] ?>"><?= sanitize($firma['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                     </div>
                     <hr>
                     <div class="mb-3">
@@ -367,6 +411,83 @@ require_once __DIR__ . '/../templates/header.php';
     </div>
 </div>
 
+<!-- Modal: Unternehmen verwalten -->
+<div class="modal fade" id="firmaModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-building me-2"></i>Unternehmen verwalten</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Neues Unternehmen -->
+                <form method="POST" class="mb-4">
+                    <input type="hidden" name="action" value="create_firma">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label">Name *</label>
+                            <input type="text" class="form-control" name="firma_name" required placeholder="z.B. HABEGGER AG">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Ort</label>
+                            <input type="text" class="form-control" name="firma_ort" placeholder="z.B. Regensdorf">
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-plus-lg me-1"></i>Hinzufügen
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Liste der Unternehmen -->
+                <h6>Vorhandene Unternehmen</h6>
+                <?php if (empty($firmen)): ?>
+                <p class="text-muted">Noch keine Unternehmen vorhanden.</p>
+                <?php else: ?>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Ort</th>
+                            <th>Benutzer</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($firmen as $firma):
+                            $userCount = $db->fetchOne("SELECT COUNT(*) as cnt FROM benutzer WHERE firma_id = ?", [$firma['id']]);
+                        ?>
+                        <tr>
+                            <td><strong><?= sanitize($firma['name']) ?></strong></td>
+                            <td><?= sanitize($firma['ort'] ?? '-') ?></td>
+                            <td><span class="badge bg-secondary"><?= $userCount['cnt'] ?></span></td>
+                            <td class="text-end">
+                                <?php if ($userCount['cnt'] == 0): ?>
+                                <form method="POST" class="d-inline" onsubmit="return confirm('Unternehmen wirklich löschen?')">
+                                    <input type="hidden" name="action" value="delete_firma">
+                                    <input type="hidden" name="firma_id" value="<?= $firma['id'] ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                <?php else: ?>
+                                <span class="text-muted small">Benutzer zugewiesen</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <?php endif; ?>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 function editBenutzer(user) {
     document.getElementById('edit_user_id').value = user.id;
@@ -374,6 +495,7 @@ function editBenutzer(user) {
     document.getElementById('edit_nachname').value = user.nachname;
     document.getElementById('edit_email').value = user.email;
     document.getElementById('edit_rolle').value = user.rolle;
+    document.getElementById('edit_firma_id').value = user.firma_id || '';
     document.getElementById('edit_passwort').value = '';
 
     new bootstrap.Modal(document.getElementById('editBenutzerModal')).show();
