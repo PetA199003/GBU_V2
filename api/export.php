@@ -188,7 +188,7 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
     </style>
 </head>
 <body>
-    <a href="javascript:history.back()" class="back-btn no-print">← Zurück</a>
+    <a href="<?= BASE_URL ?>/projekt.php?id=<?= $projekt['id'] ?>" class="back-btn no-print">← Zurück zum Projekt</a>
     <button class="print-btn no-print" onclick="window.print()">🖨️ Drucken / PDF</button>
 
     <h1>Gefährdungsbeurteilung - <?= htmlspecialchars($projekt['name']) ?></h1>

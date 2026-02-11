@@ -427,19 +427,9 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
             <a href="<?= BASE_URL ?>/unterweisung.php?projekt_id=<?= $projektId ?>" class="btn btn-warning">
                 <i class="bi bi-clipboard-check me-2"></i>Sicherheitsunterweisung
             </a>
-            <div class="dropdown">
-                <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
-                    <i class="bi bi-download me-2"></i>Export
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="<?= BASE_URL ?>/api/export.php?id=<?= $projektId ?>&format=pdf" target="_blank">
-                        <i class="bi bi-file-earmark-pdf me-2"></i>PDF / Drucken
-                    </a></li>
-                    <li><a class="dropdown-item" href="<?= BASE_URL ?>/api/export.php?id=<?= $projektId ?>&format=csv">
-                        <i class="bi bi-file-earmark-excel me-2"></i>Excel (CSV)
-                    </a></li>
-                </ul>
-            </div>
+            <a href="<?= BASE_URL ?>/api/export.php?id=<?= $projektId ?>&format=pdf" target="_blank" class="btn btn-outline-secondary">
+                <i class="bi bi-file-earmark-pdf me-2"></i>PDF / Drucken
+            </a>
         </div>
     </div>
 
