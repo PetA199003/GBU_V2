@@ -756,6 +756,12 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
 </div>
 
 <!-- Modal: Neue Gefährdung / Bearbeiten -->
+<style>
+    #neueGefaehrdungModal .modal-body {
+        max-height: calc(100vh - 180px);
+        overflow-y: auto;
+    }
+</style>
 <div class="modal fade" id="neueGefaehrdungModal" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">

@@ -418,6 +418,12 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
 </div>
 
 <!-- Modal: Gefährdung - gleiches Layout wie bei Projekten -->
+<style>
+    #gefaehrdungModal .modal-body {
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
+    }
+</style>
 <div class="modal fade" id="gefaehrdungModal" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
