@@ -204,6 +204,9 @@ class Auth {
         if (isset($data['aktiv'])) {
             $updateData['aktiv'] = $data['aktiv'];
         }
+        if (array_key_exists('firma_id', $data)) {
+            $updateData['firma_id'] = $data['firma_id'];
+        }
 
         if (!empty($updateData)) {
             $this->db->update('benutzer', $updateData, 'id = :id', ['id' => $id]);
