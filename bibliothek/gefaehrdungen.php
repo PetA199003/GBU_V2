@@ -36,19 +36,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     switch ($action) {
         case 'create':
         case 'update':
+            // STOP-Maßnahmen zusammenführen für typische_massnahmen (Kompatibilität)
+            $allMassnahmen = [];
+            if (!empty($_POST['massnahme_s'])) $allMassnahmen[] = "S: " . $_POST['massnahme_s'];
+            if (!empty($_POST['massnahme_t'])) $allMassnahmen[] = "T: " . $_POST['massnahme_t'];
+            if (!empty($_POST['massnahme_o'])) $allMassnahmen[] = "O: " . $_POST['massnahme_o'];
+            if (!empty($_POST['massnahme_p'])) $allMassnahmen[] = "P: " . $_POST['massnahme_p'];
+
             $data = [
                 'gefaehrdungsart_id' => $_POST['gefaehrdungsart_id'] ?: null,
                 'kategorie_id' => $_POST['kategorie_id'] ?: null,
                 'unterkategorie_id' => $_POST['unterkategorie_id'] ?: null,
                 'titel' => $_POST['titel'],
                 'beschreibung' => $_POST['beschreibung'],
-                'typische_massnahmen' => $_POST['massnahmen'] ?: null,
+                'typische_massnahmen' => !empty($allMassnahmen) ? implode("\n", $allMassnahmen) : null,
                 'standard_schadenschwere' => $_POST['schadenschwere'] ?? 2,
                 'standard_wahrscheinlichkeit' => $_POST['wahrscheinlichkeit'] ?? 2,
                 'stop_s' => isset($_POST['stop_s']) ? 1 : 0,
                 'stop_t' => isset($_POST['stop_t']) ? 1 : 0,
                 'stop_o' => isset($_POST['stop_o']) ? 1 : 0,
                 'stop_p' => isset($_POST['stop_p']) ? 1 : 0,
+                'massnahme_s' => $_POST['massnahme_s'] ?: null,
+                'massnahme_t' => $_POST['massnahme_t'] ?: null,
+                'massnahme_o' => $_POST['massnahme_o'] ?: null,
+                'massnahme_p' => $_POST['massnahme_p'] ?: null,
                 'verantwortlich' => $_POST['verantwortlich'] ?: null,
                 'schadenschwere_nachher' => $_POST['schadenschwere_nachher'] ?: null,
                 'wahrscheinlichkeit_nachher' => $_POST['wahrscheinlichkeit_nachher'] ?: null,
@@ -490,39 +501,66 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
                         <div class="col-md-6">
                             <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-shield-check me-2"></i>Maßnahmen</h6>
 
-                            <div class="mb-3">
-                                <label class="form-label">STOP-Prinzip (Mehrfachauswahl)</label>
-                                <div class="d-flex flex-wrap gap-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="stop_s" id="stop_s" value="1">
-                                        <label class="form-check-label" for="stop_s">
+                            <p class="text-muted small mb-2">Aktivieren Sie ein STOP-Prinzip und beschreiben Sie die jeweilige Maßnahme:</p>
+
+                            <!-- S - Substitution -->
+                            <div class="card mb-2 stop-card" id="stop_s_card">
+                                <div class="card-header py-2 d-flex align-items-center">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input stop-check" type="checkbox" name="stop_s" id="stop_s" value="1" onchange="toggleStopMassnahme('s')">
+                                        <label class="form-check-label fw-bold" for="stop_s">
                                             <span class="badge bg-danger">S</span> Substitution
                                         </label>
                                     </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="stop_t" id="stop_t" value="1">
-                                        <label class="form-check-label" for="stop_t">
+                                </div>
+                                <div class="card-body py-2 stop-body" id="stop_s_body" style="display: none;">
+                                    <textarea class="form-control form-control-sm" name="massnahme_s" id="gef_massnahme_s" rows="2" placeholder="Substitutions-Maßnahmen beschreiben..."></textarea>
+                                </div>
+                            </div>
+
+                            <!-- T - Technisch -->
+                            <div class="card mb-2 stop-card" id="stop_t_card">
+                                <div class="card-header py-2 d-flex align-items-center">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input stop-check" type="checkbox" name="stop_t" id="stop_t" value="1" onchange="toggleStopMassnahme('t')">
+                                        <label class="form-check-label fw-bold" for="stop_t">
                                             <span class="badge bg-warning text-dark">T</span> Technisch
                                         </label>
                                     </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="stop_o" id="stop_o" value="1">
-                                        <label class="form-check-label" for="stop_o">
+                                </div>
+                                <div class="card-body py-2 stop-body" id="stop_t_body" style="display: none;">
+                                    <textarea class="form-control form-control-sm" name="massnahme_t" id="gef_massnahme_t" rows="2" placeholder="Technische Maßnahmen beschreiben..."></textarea>
+                                </div>
+                            </div>
+
+                            <!-- O - Organisatorisch -->
+                            <div class="card mb-2 stop-card" id="stop_o_card">
+                                <div class="card-header py-2 d-flex align-items-center">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input stop-check" type="checkbox" name="stop_o" id="stop_o" value="1" onchange="toggleStopMassnahme('o')">
+                                        <label class="form-check-label fw-bold" for="stop_o">
                                             <span class="badge bg-info">O</span> Organisatorisch
                                         </label>
                                     </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="stop_p" id="stop_p" value="1">
-                                        <label class="form-check-label" for="stop_p">
+                                </div>
+                                <div class="card-body py-2 stop-body" id="stop_o_body" style="display: none;">
+                                    <textarea class="form-control form-control-sm" name="massnahme_o" id="gef_massnahme_o" rows="2" placeholder="Organisatorische Maßnahmen beschreiben..."></textarea>
+                                </div>
+                            </div>
+
+                            <!-- P - Persönlich (PSA) -->
+                            <div class="card mb-2 stop-card" id="stop_p_card">
+                                <div class="card-header py-2 d-flex align-items-center">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input stop-check" type="checkbox" name="stop_p" id="stop_p" value="1" onchange="toggleStopMassnahme('p')">
+                                        <label class="form-check-label fw-bold" for="stop_p">
                                             <span class="badge bg-success">P</span> Persönlich (PSA)
                                         </label>
                                     </div>
                                 </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Maßnahmen</label>
-                                <textarea class="form-control" name="massnahmen" id="gef_massnahmen" rows="4" placeholder="Beschreiben Sie die Schutzmaßnahmen..."></textarea>
+                                <div class="card-body py-2 stop-body" id="stop_p_body" style="display: none;">
+                                    <textarea class="form-control form-control-sm" name="massnahme_p" id="gef_massnahme_p" rows="2" placeholder="Persönliche Schutzausrüstung beschreiben..."></textarea>
+                                </div>
                             </div>
 
                             <div class="mb-3">
@@ -596,6 +634,21 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT;
 <script>
 // Unterkategorien-Daten
 const unterkategorien = <?= json_encode($unterkategorien) ?>;
+
+// STOP-Maßnahmen Toggle
+function toggleStopMassnahme(type) {
+    const checkbox = document.getElementById('stop_' + type);
+    const body = document.getElementById('stop_' + type + '_body');
+    const card = document.getElementById('stop_' + type + '_card');
+
+    if (checkbox.checked) {
+        body.style.display = 'block';
+        card.classList.add('border-primary');
+    } else {
+        body.style.display = 'none';
+        card.classList.remove('border-primary');
+    }
+}
 
 function loadUnterkategorien(kategorieId) {
     const select = document.getElementById('gef_unterkategorie_id');
@@ -675,7 +728,17 @@ function editGefaehrdung(data, gefTags) {
     document.getElementById('stop_o').checked = data.stop_o == 1;
     document.getElementById('stop_p').checked = data.stop_p == 1;
 
-    document.getElementById('gef_massnahmen').value = data.typische_massnahmen || '';
+    // STOP Maßnahmen-Textfelder
+    document.getElementById('gef_massnahme_s').value = data.massnahme_s || '';
+    document.getElementById('gef_massnahme_t').value = data.massnahme_t || '';
+    document.getElementById('gef_massnahme_o').value = data.massnahme_o || '';
+    document.getElementById('gef_massnahme_p').value = data.massnahme_p || '';
+
+    // Textfelder anzeigen/ausblenden
+    toggleStopMassnahme('s');
+    toggleStopMassnahme('t');
+    toggleStopMassnahme('o');
+    toggleStopMassnahme('p');
     document.getElementById('gef_verantwortlich').value = data.verantwortlich || '';
     document.getElementById('gef_schadenschwere_nachher').value = data.schadenschwere_nachher || '';
     document.getElementById('gef_wahrscheinlichkeit_nachher').value = data.wahrscheinlichkeit_nachher || '';
@@ -704,6 +767,12 @@ document.getElementById('gefaehrdungModal').addEventListener('hidden.bs.modal', 
     this.querySelector('form').reset();
     updateRisiko();
     document.getElementById('risikoNachherAnzeige').textContent = '-';
+
+    // STOP-Felder zurücksetzen
+    ['s', 't', 'o', 'p'].forEach(type => {
+        document.getElementById('stop_' + type + '_body').style.display = 'none';
+        document.getElementById('stop_' + type + '_card').classList.remove('border-primary');
+    });
 });
 
 // Initial

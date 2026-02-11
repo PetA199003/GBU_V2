@@ -43,18 +43,6 @@ if ($isAdmin) {
     ", [$userId])['cnt'];
 }
 
-// Hohe Risiken nach Maßnahmen zählen (für Warnung)
-if ($isAdmin) {
-    $hoheRisikenNach = $db->fetchOne("SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen WHERE (risikobewertung_nach IS NOT NULL AND risikobewertung_nach >= 9) OR (risikobewertung_nach IS NULL AND risikobewertung >= 9)")['cnt'];
-} else {
-    $hoheRisikenNach = $db->fetchOne("
-        SELECT COUNT(*) as cnt FROM projekt_gefaehrdungen pg
-        JOIN projekte p ON pg.projekt_id = p.id
-        JOIN benutzer_projekte bp ON p.id = bp.projekt_id
-        WHERE bp.benutzer_id = ? AND ((pg.risikobewertung_nach IS NOT NULL AND pg.risikobewertung_nach >= 9) OR (pg.risikobewertung_nach IS NULL AND pg.risikobewertung >= 9))
-    ", [$userId])['cnt'];
-}
-
 $pageTitle = 'Dashboard';
 require_once __DIR__ . '/templates/header.php';
 ?>
@@ -177,20 +165,6 @@ require_once __DIR__ . '/templates/header.php';
         </div>
     </div>
 
-    <!-- Risiko-Hinweis (nur wenn nach Maßnahmen noch hohe Risiken vorhanden) -->
-    <?php if ($hoheRisikenNach > 0): ?>
-    <div class="row">
-        <div class="col-12">
-            <div class="alert alert-danger d-flex align-items-center">
-                <i class="bi bi-exclamation-triangle-fill me-3" style="font-size: 1.5rem;"></i>
-                <div>
-                    <strong>Achtung!</strong> Es gibt <?= $hoheRisikenNach ?> Gefährdung(en), bei denen das Risiko auch nach Maßnahmen noch sehr hoch ist (R ≥ 9).
-                    Diese sollten dringend weiter reduziert werden.
-                </div>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
 </div>
 
 <?php require_once __DIR__ . '/templates/footer.php'; ?>

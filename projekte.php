@@ -127,6 +127,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'stop_t' => $gef['stop_t'] ?? 0,
                         'stop_o' => $gef['stop_o'] ?? 0,
                         'stop_p' => $gef['stop_p'] ?? 0,
+                        'massnahme_s' => $gef['massnahme_s'] ?? null,
+                        'massnahme_t' => $gef['massnahme_t'] ?? null,
+                        'massnahme_o' => $gef['massnahme_o'] ?? null,
+                        'massnahme_p' => $gef['massnahme_p'] ?? null,
                         'massnahmen' => $gef['typische_massnahmen'],
                         'erstellt_von' => $userId
                     ]);
