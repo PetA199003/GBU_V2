@@ -246,15 +246,19 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
             font-size: 13pt;
             text-align: center;
             background: #FFC107;
-            padding: 6px 10px;
-            margin-bottom: 0;
+            padding: 8px 10px;
+            margin-bottom: 10px;
         }
-        .subtitle {
+        .print-footer-tl {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
             text-align: center;
             font-size: 8pt;
-            margin-bottom: 15px;
-            padding: 4px 5px;
-            background: #FFC107;
+            color: #666;
+            padding: 4px 10mm;
+            border-top: 1px solid #ccc;
         }
         .header-info { margin: 15px 0; }
         .header-info table { width: 100%; }
@@ -272,11 +276,14 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
         table.teilnehmer tbody td { height: 40px; vertical-align: middle; padding: 4px 8px; line-height: 1.2; }
         table.teilnehmer td.unterschrift { padding-top: 2px; padding-bottom: 2px; }
         table.teilnehmer td.unterschrift img { max-height: 32px; max-width: 100%; display: block; }
-        .page-number { text-align: center; font-size: 8pt; margin-top: 20px; }
         @media print {
-            body { padding: 10mm; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { padding: 10mm; padding-bottom: 30px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             .no-print { display: none; }
-            h1, .subtitle { background: #FFC107 !important; -webkit-print-color-adjust: exact !important; }
+            h1 { background: #FFC107 !important; -webkit-print-color-adjust: exact !important; }
+            .print-footer-tl { display: block; }
+        }
+        @media screen {
+            .print-footer-tl { display: none; }
         }
         .print-btn { position: fixed; top: 10px; right: 10px; padding: 10px 20px; background: #0d6efd; color: white; border: none; cursor: pointer; border-radius: 4px; }
         .back-btn { position: fixed; top: 10px; right: 200px; padding: 10px 20px; background: #6c757d; color: white; border: none; cursor: pointer; border-radius: 4px; text-decoration: none; }
@@ -296,13 +303,13 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
     }
     ?>
 
+    <div class="print-footer-tl">
+        <?= htmlspecialchars($unterweisung['projekt_name']) ?> — <?= date('d.m.Y', strtotime($unterweisung['zeitraum_von'])) ?> bis <?= date('d.m.Y', strtotime($unterweisung['zeitraum_bis'])) ?> / <?= htmlspecialchars($unterweisung['location']) ?>
+    </div>
+
     <div class="page-header">
         <div class="page-header-content">
             <h1>Bestätigung der Unterweisung</h1>
-            <div class="subtitle">
-                nach § 4 der Unfallverhütungsvorschrift
-                "Grundsätze der Prävention" DGUV Vorschrift 1 / VUV
-            </div>
         </div>
         <?php if ($firmaLogoUrl): ?>
         <div class="page-header-logo">
@@ -398,7 +405,7 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
         </tbody>
     </table>
 
-    <p class="page-number">Seite 1 von 1</p>
+
 </body>
 </html>
 <?php
