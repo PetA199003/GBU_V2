@@ -95,20 +95,19 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
             break-inside: avoid;
             page-break-inside: avoid;
         }
-        /* Wrapper-Tabelle für wiederholenden Footer auf jeder Druckseite */
-        .print-wrapper { width: 100%; }
-        .print-wrapper > thead { display: table-header-group; }
-        .print-wrapper > tfoot { display: table-footer-group; }
-        .print-wrapper > tbody { display: table-row-group; }
-        .print-footer-content {
+        /* Seiten-Container für individuelle Seitennummern */
+        .page-container { position: relative; }
+        .page-footer {
             text-align: center;
             font-size: 8pt;
             color: #666;
             padding-top: 8px;
             border-top: 1px solid #ccc;
+            margin-top: 15px;
         }
-        /* Platzhalter damit Inhalt nicht vom Footer überdeckt wird */
-        .footer-spacer { height: 15px; }
+        .page-divider {
+            page-break-before: always;
+        }
         @page {
             margin: 10mm;
         }
@@ -120,10 +119,10 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
                 break-inside: avoid;
                 page-break-inside: avoid;
             }
+            .page-footer { display: block; }
         }
         @media screen {
-            .print-footer-content { display: none; }
-            .footer-spacer { display: none; }
+            .page-footer { display: none; }
         }
         .print-btn { position: fixed; top: 10px; right: 10px; padding: 10px 20px; background: #0d6efd; color: white; border: none; cursor: pointer; border-radius: 4px; z-index: 1000; }
         .back-btn { position: fixed; top: 10px; right: 200px; padding: 10px 20px; background: #6c757d; color: white; border: none; cursor: pointer; border-radius: 4px; text-decoration: none; z-index: 1000; }
@@ -133,17 +132,7 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
     <a href="<?= BASE_URL ?>/unterweisung.php?projekt_id=<?= htmlspecialchars($unterweisung['projekt_id']) ?>" class="back-btn no-print">← Zurück zur Unterweisung</a>
     <button class="print-btn no-print" onclick="window.print()">Drucken / PDF</button>
 
-    <table class="print-wrapper">
-        <thead><tr><td>&nbsp;</td></tr></thead>
-        <tfoot>
-            <tr><td>
-                <div class="print-footer-content">
-                    Seite <span class="page-num"></span> — <?= htmlspecialchars($unterweisung['projekt_name']) ?>
-                </div>
-                <div class="footer-spacer"></div>
-            </td></tr>
-        </tfoot>
-        <tbody><tr><td>
+    <div id="content-wrapper">
 
     <?php
     // Firmen-Logo URL vorbereiten
@@ -215,18 +204,52 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
         Erstellt von <?= htmlspecialchars($unterweisung['durchgefuehrt_von'] ?? 'Unbekannt') ?> am <?= date('d.m.Y') ?>
     </p>
 
-        </td></tr></tbody>
-    </table>
+    </div>
 
     <script>
-    // Seitenzahlen im Footer: Gesamtanzahl berechnen und einfügen
+    var projektName = <?= json_encode($unterweisung['projekt_name']) ?>;
+    var paginationDone = false;
+
     window.addEventListener('beforeprint', function() {
-        var contentHeight = document.querySelector('.print-wrapper').offsetHeight;
-        // A4: ca. 1045px bei 96dpi mit 10mm Rand
-        var pageHeight = 1045;
-        var totalPages = Math.ceil(contentHeight / pageHeight) || 1;
-        document.querySelectorAll('.page-num').forEach(function(el) {
-            el.textContent = '1 / ' + totalPages;
+        if (paginationDone) return;
+        paginationDone = true;
+
+        var wrapper = document.getElementById('content-wrapper');
+        // Alle direkten Kind-Elemente als verschiebbare Blöcke sammeln
+        var blocks = Array.from(wrapper.children);
+
+        // A4 druckbare Höhe: ca. 980px bei 96dpi mit 10mm Rand (etwas kleiner für Footer)
+        var PAGE_HEIGHT = 940;
+        var pages = [];
+        var currentPage = document.createElement('div');
+        currentPage.className = 'page-container';
+        var currentHeight = 0;
+
+        blocks.forEach(function(block) {
+            var h = block.offsetHeight + 10; // 10px Margin-Puffer
+            if (currentHeight + h > PAGE_HEIGHT && currentHeight > 0) {
+                pages.push(currentPage);
+                currentPage = document.createElement('div');
+                currentPage.className = 'page-container page-divider';
+                currentHeight = 0;
+            }
+            currentPage.appendChild(block);
+            currentHeight += h;
+        });
+        if (currentPage.children.length > 0) {
+            pages.push(currentPage);
+        }
+
+        var totalPages = pages.length;
+
+        // Wrapper leeren und Seiten mit Footer einfügen
+        wrapper.innerHTML = '';
+        pages.forEach(function(page, idx) {
+            var footer = document.createElement('div');
+            footer.className = 'page-footer';
+            footer.textContent = 'Seite ' + (idx + 1) + ' / ' + totalPages + ' — ' + projektName;
+            page.appendChild(footer);
+            wrapper.appendChild(page);
         });
     });
     </script>
