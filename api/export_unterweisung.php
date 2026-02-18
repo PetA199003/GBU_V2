@@ -290,8 +290,8 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
         table.teilnehmer { width: 100%; border-collapse: collapse; margin-top: 15px; }
         table.teilnehmer th, table.teilnehmer td { border: 1px solid #000; padding: 8px; }
         table.teilnehmer th { background: #f0f0f0; text-align: left; }
-        table.teilnehmer td.unterschrift { height: 35px; }
-        table.teilnehmer td.unterschrift img { max-height: 30px; }
+        table.teilnehmer tbody td { height: 40px; vertical-align: middle; }
+        table.teilnehmer td.unterschrift img { max-height: 35px; }
         .page-number { text-align: center; font-size: 8pt; margin-top: 20px; }
         @media print {
             body { padding: 10mm; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -401,9 +401,10 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
                 <td><?= htmlspecialchars($t['nachname']) ?></td>
                 <td><?= htmlspecialchars($t['vorname']) ?></td>
                 <td style="font-size: 8pt;"><?= htmlspecialchars($t['firma'] ?? '') ?></td>
-                <td style="font-size: 8pt; white-space: nowrap;">
+                <td style="font-size: 8pt;">
                     <?php if ($t['unterschrieben_am']): ?>
-                    <?= date('d.m.Y', strtotime($t['unterschrieben_am'])) ?>, <?= date('H:i', strtotime($t['unterschrieben_am'])) ?>
+                    <?= date('d.m.Y', strtotime($t['unterschrieben_am'])) ?><br>
+                    <span style="color: #666;"><?= date('H:i', strtotime($t['unterschrieben_am'])) ?> Uhr</span>
                     <?php endif; ?>
                 </td>
                 <td class="unterschrift">
