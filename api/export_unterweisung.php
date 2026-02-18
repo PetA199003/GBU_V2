@@ -69,7 +69,7 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
     <title>Sicherheitsunterweisung - <?= htmlspecialchars($unterweisung['projekt_name']) ?></title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.4; padding: 15mm; }
+        body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.4; padding: 15mm; padding-bottom: 20mm; }
         h1 { font-size: 16pt; text-align: center; margin-bottom: 5px; }
         h2 {
             font-size: 11pt;
@@ -90,11 +90,26 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
         ul { margin: 0; padding-left: 20px; }
         li { margin-bottom: 3px; }
         .page-break { page-break-before: always; }
-        .footer { position: fixed; bottom: 10mm; left: 15mm; right: 15mm; font-size: 8pt; color: #666; text-align: center; border-top: 1px solid #ccc; padding-top: 5px; }
+        .kategorie-block {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        @page {
+            margin-bottom: 20mm;
+            @bottom-center {
+                content: counter(page) " / " counter(pages);
+                font-size: 8pt;
+                color: #666;
+            }
+        }
         @media print {
-            body { padding: 10mm; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { padding: 10mm; padding-bottom: 20mm; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             .no-print { display: none; }
             h2 { background: #FFC107 !important; -webkit-print-color-adjust: exact !important; }
+            .kategorie-block {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
         }
         .print-btn { position: fixed; top: 10px; right: 10px; padding: 10px 20px; background: #0d6efd; color: white; border: none; cursor: pointer; border-radius: 4px; }
         .back-btn { position: fixed; top: 10px; right: 200px; padding: 10px 20px; background: #6c757d; color: white; border: none; cursor: pointer; border-radius: 4px; text-decoration: none; }
@@ -123,34 +138,36 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
     </div>
 
     <?php foreach ($bausteineNachKat as $kategorie => $bausteine): ?>
-    <h2><?= htmlspecialchars($kategorie) ?></h2>
-    <table class="content-table">
-        <?php foreach ($bausteine as $b):
-            // Bild-URL korrigieren (relative zu absolute URL)
-            $bildUrl = $b['bild_url'];
-            if ($bildUrl && !preg_match('/^https?:\/\//', $bildUrl)) {
-                $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-                $host = $_SERVER['HTTP_HOST'];
-                $bildUrl = $protocol . '://' . $host . $bildUrl;
-            }
-        ?>
-        <tr>
-            <td class="icon-cell">
-                <?php if ($bildUrl): ?>
-                <img src="<?= htmlspecialchars($bildUrl) ?>" style="max-width: 80px; max-height: 80px;" onerror="this.style.display='none'">
-                <?php else: ?>
-                &nbsp;
-                <?php endif; ?>
-            </td>
-            <td>
-                <?php if (count($bausteine) > 1 || $b['titel'] !== $kategorie): ?>
-                <strong><?= htmlspecialchars($b['titel']) ?></strong><br>
-                <?php endif; ?>
-                <?= nl2br(htmlspecialchars($b['inhalt'])) ?>
-            </td>
-        </tr>
-        <?php endforeach; ?>
-    </table>
+    <div class="kategorie-block">
+        <h2><?= htmlspecialchars($kategorie) ?></h2>
+        <table class="content-table">
+            <?php foreach ($bausteine as $b):
+                // Bild-URL korrigieren (relative zu absolute URL)
+                $bildUrl = $b['bild_url'];
+                if ($bildUrl && !preg_match('/^https?:\/\//', $bildUrl)) {
+                    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+                    $host = $_SERVER['HTTP_HOST'];
+                    $bildUrl = $protocol . '://' . $host . $bildUrl;
+                }
+            ?>
+            <tr>
+                <td class="icon-cell">
+                    <?php if ($bildUrl): ?>
+                    <img src="<?= htmlspecialchars($bildUrl) ?>" style="max-width: 80px; max-height: 80px;" onerror="this.style.display='none'">
+                    <?php else: ?>
+                    &nbsp;
+                    <?php endif; ?>
+                </td>
+                <td>
+                    <?php if (count($bausteine) > 1 || $b['titel'] !== $kategorie): ?>
+                    <strong><?= htmlspecialchars($b['titel']) ?></strong><br>
+                    <?php endif; ?>
+                    <?= nl2br(htmlspecialchars($b['inhalt'])) ?>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+        </table>
+    </div>
     <?php endforeach; ?>
 
     <p style="margin-top: 30px; font-size: 8pt; color: #666;">
