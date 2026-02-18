@@ -345,6 +345,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                 echo json_encode(['success' => false, 'error' => 'Ungültige Daten']);
             }
             exit;
+
+        case 'rename_kategorie':
+            if ($isAdmin) {
+                $alteName = $_POST['alte_kategorie'] ?? '';
+                $neueName = trim($_POST['neue_kategorie'] ?? '');
+                if ($alteName && $neueName && $alteName !== $neueName) {
+                    $db->query(
+                        "UPDATE unterweisungs_bausteine SET kategorie = ? WHERE kategorie = ?",
+                        [$neueName, $alteName]
+                    );
+                    setFlashMessage('success', 'Kategorie "' . $alteName . '" umbenannt zu "' . $neueName . '"');
+                } else {
+                    setFlashMessage('error', 'Bitte einen neuen Namen eingeben');
+                }
+            }
+            break;
+
+        case 'delete_kategorie':
+            if ($isAdmin) {
+                $kategorieName = $_POST['kategorie_name'] ?? '';
+                if ($kategorieName) {
+                    // Alle Bausteine dieser Kategorie löschen
+                    $bausteinIds = $db->fetchAll(
+                        "SELECT id FROM unterweisungs_bausteine WHERE kategorie = ?",
+                        [$kategorieName]
+                    );
+                    foreach ($bausteinIds as $bid) {
+                        $db->delete('unterweisung_bausteine', 'baustein_id = ?', [$bid['id']]);
+                    }
+                    $db->delete('unterweisungs_bausteine', 'kategorie = ?', [$kategorieName]);
+                    setFlashMessage('success', 'Kategorie "' . $kategorieName . '" mit allen Bausteinen gelöscht');
+                }
+            }
+            break;
     }
 
     redirect('unterweisung.php?projekt_id=' . $projektId);
@@ -526,7 +560,7 @@ require_once __DIR__ . '/templates/header.php';
                         <div class="accordion" id="bausteineAccordion">
                             <?php $accIndex = 0; foreach ($bausteineNachKategorie as $kategorie => $bausteine): $accIndex++; ?>
                             <div class="accordion-item">
-                                <h2 class="accordion-header">
+                                <h2 class="accordion-header d-flex align-items-center">
                                     <button class="accordion-button <?= $accIndex > 1 ? 'collapsed' : '' ?>" type="button"
                                             data-bs-toggle="collapse" data-bs-target="#kat<?= $accIndex ?>">
                                         <?= sanitize($kategorie) ?>
@@ -534,6 +568,18 @@ require_once __DIR__ . '/templates/header.php';
                                             <?= count(array_filter($bausteine, fn($b) => in_array($b['id'], $ausgewaehlteIds))) ?>
                                         </span>
                                     </button>
+                                    <?php if ($isAdmin): ?>
+                                    <div class="d-flex me-2">
+                                        <button type="button" class="btn btn-sm btn-link text-primary p-1" title="Kategorie umbenennen"
+                                                onclick="event.stopPropagation(); editKategorie('<?= addslashes(sanitize($kategorie)) ?>')">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-link text-danger p-1" title="Kategorie löschen"
+                                                onclick="event.stopPropagation(); deleteKategorie('<?= addslashes(sanitize($kategorie)) ?>', <?= count($bausteine) ?>)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                    <?php endif; ?>
                                 </h2>
                                 <div id="kat<?= $accIndex ?>" class="accordion-collapse collapse <?= $accIndex === 1 ? 'show' : '' ?>">
                                     <div class="accordion-body">
@@ -985,6 +1031,44 @@ require_once __DIR__ . '/templates/header.php';
     <input type="hidden" name="action" value="delete_baustein">
     <input type="hidden" name="baustein_id" id="deleteBausteinId">
 </form>
+
+<!-- Verstecktes Formular für Kategorie-Löschung -->
+<form method="POST" id="deleteKategorieForm" style="display: none;">
+    <input type="hidden" name="action" value="delete_kategorie">
+    <input type="hidden" name="kategorie_name" id="deleteKategorieName">
+</form>
+
+<!-- Modal: Kategorie umbenennen -->
+<div class="modal fade" id="editKategorieModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="action" value="rename_kategorie">
+                <input type="hidden" name="alte_kategorie" id="editKategorieAlt">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Kategorie umbenennen</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Aktueller Name</label>
+                        <input type="text" class="form-control" id="editKategorieAltAnzeige" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Neuer Name *</label>
+                        <input type="text" class="form-control" name="neue_kategorie" id="editKategorieNeu" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>Umbenennen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 <?php endif; ?>
 
 <!-- Modal: Unterschrift anzeigen -->
@@ -1158,6 +1242,20 @@ function deleteBaustein(bausteinId) {
     if (confirm('Baustein wirklich löschen?')) {
         document.getElementById('deleteBausteinId').value = bausteinId;
         document.getElementById('deleteBausteinForm').submit();
+    }
+}
+
+function editKategorie(kategorieName) {
+    document.getElementById('editKategorieAlt').value = kategorieName;
+    document.getElementById('editKategorieAltAnzeige').value = kategorieName;
+    document.getElementById('editKategorieNeu').value = kategorieName;
+    new bootstrap.Modal(document.getElementById('editKategorieModal')).show();
+}
+
+function deleteKategorie(kategorieName, anzahl) {
+    if (confirm('Kategorie "' + kategorieName + '" mit ' + anzahl + ' Baustein(en) wirklich löschen?\n\nAlle Bausteine in dieser Kategorie werden unwiderruflich entfernt!')) {
+        document.getElementById('deleteKategorieName').value = kategorieName;
+        document.getElementById('deleteKategorieForm').submit();
     }
 }
 
@@ -1374,6 +1472,18 @@ if (sortableList) {
 </script>
 
 <style>
+/* Kategorie-Bearbeitung Buttons im Accordion */
+.accordion-header.d-flex .accordion-button {
+    flex: 1;
+}
+.accordion-header.d-flex .btn-link {
+    opacity: 0.4;
+    transition: opacity 0.2s;
+}
+.accordion-header.d-flex:hover .btn-link {
+    opacity: 1;
+}
+
 /* Drag & Drop Styles */
 .sortable-item {
     transition: transform 0.2s, box-shadow 0.2s;
