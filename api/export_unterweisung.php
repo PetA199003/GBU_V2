@@ -111,13 +111,20 @@ function generateUnterweisung($unterweisung, $bausteineNachKat, $lang, $vars) {
         li { margin-bottom: 3px; }
         .page-break { page-break-before: always; }
         .kategorie-block {
-            margin-top: 20px;
-            break-inside: avoid;
-            page-break-inside: avoid;
-            page-break-before: auto;
+            margin-top: 18px;
         }
         .kategorie-block:first-child {
             margin-top: 0;
+        }
+        /* Kategorie-Header (h2) soll nicht allein am Seitenende stehen */
+        h2 {
+            break-after: avoid;
+            page-break-after: avoid;
+        }
+        /* Einzelne Bausteine (Tabellenzeilen) nicht umbrechen */
+        .content-table tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
         }
         /* Footer auf jeder Druckseite (position: fixed wiederholt in Chrome) */
         .print-footer {
@@ -137,16 +144,10 @@ function generateUnterweisung($unterweisung, $bausteineNachKat, $lang, $vars) {
         @media print {
             body { padding: 0; padding-bottom: 30px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             .no-print { display: none !important; }
-            h2 { background: #FFC107 !important; -webkit-print-color-adjust: exact !important; }
-            .kategorie-block {
+            h2 { background: #FFC107 !important; -webkit-print-color-adjust: exact !important; break-after: avoid; page-break-after: avoid; }
+            .content-table tr {
                 break-inside: avoid;
                 page-break-inside: avoid;
-                page-break-before: auto;
-            }
-            /* Wenn ein Kategorie-Block nicht mehr auf die Seite passt,
-               wird er auf die nächste Seite verschoben */
-            .kategorie-block + .kategorie-block {
-                margin-top: 20px;
             }
             .print-footer { display: block; }
         }
