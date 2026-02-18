@@ -245,18 +245,36 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.4; padding: 15mm; }
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .page-header-content {
+            flex: 1;
+        }
+        .page-header-logo {
+            flex-shrink: 0;
+            margin-left: 15px;
+        }
+        .page-header-logo img {
+            max-width: 150px;
+            max-height: 60px;
+            object-fit: contain;
+        }
         h1 {
-            font-size: 14pt;
+            font-size: 13pt;
             text-align: center;
             background: #FFC107;
-            padding: 10px;
-            margin-bottom: 5px;
+            padding: 6px 10px;
+            margin-bottom: 0;
         }
         .subtitle {
             text-align: center;
-            font-size: 9pt;
+            font-size: 8pt;
             margin-bottom: 15px;
-            padding: 5px;
+            padding: 4px 5px;
             background: #FFC107;
         }
         .header-info { margin: 15px 0; }
@@ -298,15 +316,19 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
     }
     ?>
 
-    <div style="position: relative;">
-        <?php if ($firmaLogoUrl): ?>
-        <img src="<?= htmlspecialchars($firmaLogoUrl) ?>" alt="Firmenlogo" style="position: absolute; top: 0; right: 0; max-width: 150px; max-height: 60px; object-fit: contain;" onerror="this.style.display='none'">
-        <?php endif; ?>
-        <h1>Bestätigung der Unterweisung</h1>
-        <div class="subtitle">
-            nach § 4 der Unfallverhütungsvorschrift<br>
-            "Grundsätze der Prävention" DGUV Vorschrift 1 / VUV
+    <div class="page-header">
+        <div class="page-header-content">
+            <h1>Bestätigung der Unterweisung</h1>
+            <div class="subtitle">
+                nach § 4 der Unfallverhütungsvorschrift
+                "Grundsätze der Prävention" DGUV Vorschrift 1 / VUV
+            </div>
         </div>
+        <?php if ($firmaLogoUrl): ?>
+        <div class="page-header-logo">
+            <img src="<?= htmlspecialchars($firmaLogoUrl) ?>" alt="Firmenlogo" onerror="this.style.display='none'">
+        </div>
+        <?php endif; ?>
     </div>
 
     <div class="header-info">
@@ -355,8 +377,8 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
     <table class="teilnehmer">
         <thead>
             <tr>
-                <th style="width: 22%;">Name</th>
-                <th style="width: 18%;">Vorname</th>
+                <th style="width: 20%;">Name</th>
+                <th style="width: 20%;">Vorname</th>
                 <th style="width: 12%;">Firma</th>
                 <th style="width: 18%;">Datum / Uhrzeit</th>
                 <th style="width: 30%;">Unterschrift</th>
