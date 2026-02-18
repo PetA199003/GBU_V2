@@ -24,6 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'nummer' => $neueNummer,
                 'name' => $_POST['name'],
                 'beschreibung' => $_POST['beschreibung'] ?: null,
+                'name_en' => $_POST['name_en'] ?: null,
+                'beschreibung_en' => $_POST['beschreibung_en'] ?: null,
                 'ist_global' => 1,
                 'erstellt_von' => $_SESSION['user_id']
             ]);
@@ -33,7 +35,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'update_kategorie':
             $db->update('arbeits_kategorien', [
                 'name' => $_POST['name'],
-                'beschreibung' => $_POST['beschreibung'] ?: null
+                'beschreibung' => $_POST['beschreibung'] ?: null,
+                'name_en' => $_POST['name_en'] ?: null,
+                'beschreibung_en' => $_POST['beschreibung_en'] ?: null
             ], 'id = :id', ['id' => $_POST['id']]);
             setFlashMessage('success', 'Kategorie wurde aktualisiert.');
             break;
@@ -60,6 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'nummer' => $neueNummer,
                 'name' => $_POST['name'],
                 'beschreibung' => $_POST['beschreibung'] ?: null,
+                'name_en' => $_POST['name_en'] ?: null,
+                'beschreibung_en' => $_POST['beschreibung_en'] ?: null,
                 'erstellt_von' => $_SESSION['user_id']
             ]);
             setFlashMessage('success', 'Unterkategorie wurde erstellt.');
@@ -68,7 +74,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'update_unterkategorie':
             $db->update('arbeits_unterkategorien', [
                 'name' => $_POST['name'],
-                'beschreibung' => $_POST['beschreibung'] ?: null
+                'beschreibung' => $_POST['beschreibung'] ?: null,
+                'name_en' => $_POST['name_en'] ?: null,
+                'beschreibung_en' => $_POST['beschreibung_en'] ?: null
             ], 'id = :id', ['id' => $_POST['id']]);
             setFlashMessage('success', 'Unterkategorie wurde aktualisiert.');
             break;
@@ -280,9 +288,17 @@ require_once __DIR__ . '/../templates/header.php';
                                     <form method="POST" class="row g-2">
                                         <input type="hidden" name="action" value="create_unterkategorie">
                                         <input type="hidden" name="kategorie_id" value="<?= $kat['id'] ?>">
-                                        <div class="col">
+                                        <div class="col-12 col-md-6">
                                             <input type="text" class="form-control form-control-sm" name="name"
                                                    placeholder="Neue Unterkategorie..." required>
+                                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <input type="text" class="form-control form-control-sm" name="name_en"
+                                                   placeholder="English name (optional)...">
+                                        </div>
+                                        <div class="col">
+                                            <input type="text" class="form-control form-control-sm" name="beschreibung_en"
+                                                   placeholder="English description (optional)...">
                                         </div>
                                         <div class="col-auto">
                                             <button type="submit" class="btn btn-sm btn-success">
@@ -370,9 +386,19 @@ require_once __DIR__ . '/../templates/header.php';
                                placeholder="z.B. Pyrotechnik">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Name (English) <small class="text-muted">optional</small></label>
+                        <input type="text" class="form-control" name="name_en" id="kat_name_en"
+                               placeholder="Category name in English...">
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Beschreibung</label>
                         <textarea class="form-control" name="beschreibung" id="kat_beschreibung" rows="2"
                                   placeholder="Optionale Beschreibung..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Beschreibung (English) <small class="text-muted">optional</small></label>
+                        <textarea class="form-control" name="beschreibung_en" id="kat_beschreibung_en" rows="2"
+                                  placeholder="Description in English..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -402,8 +428,18 @@ require_once __DIR__ . '/../templates/header.php';
                         <input type="text" class="form-control" name="name" id="uk_name" required>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Name (English) <small class="text-muted">optional</small></label>
+                        <input type="text" class="form-control" name="name_en" id="uk_name_en"
+                               placeholder="Subcategory name in English...">
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Beschreibung</label>
                         <textarea class="form-control" name="beschreibung" id="uk_beschreibung" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Beschreibung (English) <small class="text-muted">optional</small></label>
+                        <textarea class="form-control" name="beschreibung_en" id="uk_beschreibung_en" rows="2"
+                                  placeholder="Description in English..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -422,6 +458,8 @@ function editKategorie(data) {
     document.getElementById('katModalTitle').textContent = 'Kategorie bearbeiten';
     document.getElementById('kat_name').value = data.name;
     document.getElementById('kat_beschreibung').value = data.beschreibung || '';
+    document.getElementById('kat_name_en').value = data.name_en || '';
+    document.getElementById('kat_beschreibung_en').value = data.beschreibung_en || '';
     new bootstrap.Modal(document.getElementById('kategorieModal')).show();
 }
 
@@ -429,6 +467,8 @@ function editUnterkategorie(data) {
     document.getElementById('uk_id').value = data.id;
     document.getElementById('uk_name').value = data.name;
     document.getElementById('uk_beschreibung').value = data.beschreibung || '';
+    document.getElementById('uk_name_en').value = data.name_en || '';
+    document.getElementById('uk_beschreibung_en').value = data.beschreibung_en || '';
     new bootstrap.Modal(document.getElementById('unterkategorieModal')).show();
 }
 

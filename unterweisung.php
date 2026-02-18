@@ -83,8 +83,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
 
                 $db->insert('unterweisungs_bausteine', [
                     'kategorie' => $_POST['kategorie'] ?? 'Sonstiges',
+                    'kategorie_en' => $_POST['kategorie_en'] ?: null,
                     'titel' => $_POST['titel'] ?? '',
+                    'titel_en' => $_POST['titel_en'] ?: null,
                     'inhalt' => $_POST['inhalt'] ?? '',
+                    'inhalt_en' => $_POST['inhalt_en'] ?: null,
                     'bild_url' => $bildUrl,
                     'sortierung' => 100,
                     'aktiv' => 1
@@ -137,8 +140,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
 
                 $db->update('unterweisungs_bausteine', [
                     'kategorie' => $_POST['kategorie'] ?? 'Sonstiges',
+                    'kategorie_en' => $_POST['kategorie_en'] ?: null,
                     'titel' => $_POST['titel'] ?? '',
+                    'titel_en' => $_POST['titel_en'] ?: null,
                     'inhalt' => $_POST['inhalt'] ?? '',
+                    'inhalt_en' => $_POST['inhalt_en'] ?: null,
                     'bild_url' => $bildUrl
                 ], 'id = :id', ['id' => $bausteinId]);
 
@@ -268,8 +274,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             // Baustein als projektspezifisch speichern
             $newBausteinId = $db->insert('unterweisungs_bausteine', [
                 'kategorie' => 'Projektspezifisch',
+                'kategorie_en' => $_POST['kategorie_en'] ?: null,
                 'titel' => $_POST['titel'] ?? '',
+                'titel_en' => $_POST['titel_en'] ?: null,
                 'inhalt' => $_POST['inhalt'] ?? '',
+                'inhalt_en' => $_POST['inhalt_en'] ?: null,
                 'bild_url' => $bildUrl,
                 'sortierung' => 200,
                 'aktiv' => 1,
@@ -350,10 +359,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             if ($isAdmin) {
                 $alteName = $_POST['alte_kategorie'] ?? '';
                 $neueName = trim($_POST['neue_kategorie'] ?? '');
+                $neueNameEn = isset($_POST['neue_kategorie_en']) ? trim($_POST['neue_kategorie_en']) : null;
                 if ($alteName && $neueName && $alteName !== $neueName) {
                     $db->query(
-                        "UPDATE unterweisungs_bausteine SET kategorie = ? WHERE kategorie = ?",
-                        [$neueName, $alteName]
+                        "UPDATE unterweisungs_bausteine SET kategorie = ?, kategorie_en = ? WHERE kategorie = ?",
+                        [$neueName, $neueNameEn ?: null, $alteName]
                     );
                     setFlashMessage('success', 'Kategorie "' . $alteName . '" umbenannt zu "' . $neueName . '"');
                 } else {
@@ -603,7 +613,7 @@ require_once __DIR__ . '/templates/header.php';
                                             </button>
                                             <?php if ($isAdmin): ?>
                                             <button type="button" class="btn btn-sm btn-link text-primary p-0 ms-1" title="Bearbeiten"
-                                                    onclick="editBaustein(<?= $b['id'] ?>, '<?= addslashes(sanitize($b['kategorie'])) ?>', '<?= addslashes(sanitize($b['titel'])) ?>', `<?= addslashes(sanitize($b['inhalt'])) ?>`, '<?= addslashes(sanitize($b['bild_url'] ?? '')) ?>')">
+                                                    onclick="editBaustein(<?= $b['id'] ?>, '<?= addslashes(sanitize($b['kategorie'])) ?>', '<?= addslashes(sanitize($b['titel'])) ?>', `<?= addslashes(sanitize($b['inhalt'])) ?>`, '<?= addslashes(sanitize($b['bild_url'] ?? '')) ?>', '<?= addslashes(sanitize($b['kategorie_en'] ?? '')) ?>', '<?= addslashes(sanitize($b['titel_en'] ?? '')) ?>', `<?= addslashes(sanitize($b['inhalt_en'] ?? '')) ?>`)">
                                                 <i class="bi bi-pencil"></i>
                                             </button>
                                             <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1" title="Löschen"
@@ -822,13 +832,25 @@ require_once __DIR__ . '/templates/header.php';
                         <input type="text" class="form-control" id="neueKategorie" placeholder="z.B. Spezielle Gefahren">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Kategorie (English) <small class="text-muted">optional</small></label>
+                        <input type="text" class="form-control" name="kategorie_en" placeholder="Category name in English...">
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Titel *</label>
                         <input type="text" class="form-control" name="titel" required placeholder="z.B. Arbeiten mit Chemikalien">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Titel (English) <small class="text-muted">optional</small></label>
+                        <input type="text" class="form-control" name="titel_en" placeholder="Title in English...">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Inhalt / Beschreibung *</label>
                         <textarea class="form-control" name="inhalt" rows="6" required placeholder="• Punkt 1&#10;• Punkt 2&#10;• Punkt 3"></textarea>
                         <small class="text-muted">Für Aufzählungen verwenden Sie • am Zeilenanfang</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Inhalt (English) <small class="text-muted">optional</small></label>
+                        <textarea class="form-control" name="inhalt_en" rows="4" placeholder="Content in English..."></textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Piktogramm / Bild (optional)</label>
@@ -871,13 +893,25 @@ require_once __DIR__ . '/templates/header.php';
                         </select>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Kategorie (English) <small class="text-muted">optional</small></label>
+                        <input type="text" class="form-control" name="kategorie_en" id="edit_kategorie_en">
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Titel *</label>
                         <input type="text" class="form-control" name="titel" id="editTitel" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Titel (English) <small class="text-muted">optional</small></label>
+                        <input type="text" class="form-control" name="titel_en" id="edit_titel_en">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Inhalt / Beschreibung *</label>
                         <textarea class="form-control" name="inhalt" id="editInhalt" rows="6" required></textarea>
                         <small class="text-muted">Für Aufzählungen verwenden Sie • am Zeilenanfang</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Inhalt (English) <small class="text-muted">optional</small></label>
+                        <textarea class="form-control" name="inhalt_en" id="edit_inhalt_en" rows="4"></textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Aktuelles Piktogramm</label>
@@ -961,13 +995,25 @@ require_once __DIR__ . '/templates/header.php';
                         Dieser Inhalt wird nur für dieses Projekt erstellt und ist nicht in anderen Projekten sichtbar.
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Kategorie (English) <small class="text-muted">optional</small></label>
+                        <input type="text" class="form-control" name="kategorie_en" placeholder="Category name in English...">
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Titel *</label>
                         <input type="text" class="form-control" name="titel" required placeholder="z.B. Spezielle Baustellenregeln">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Titel (English) <small class="text-muted">optional</small></label>
+                        <input type="text" class="form-control" name="titel_en" placeholder="Title in English...">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Inhalt / Beschreibung *</label>
                         <textarea class="form-control" name="inhalt" rows="6" required placeholder="• Punkt 1&#10;• Punkt 2&#10;• Punkt 3"></textarea>
                         <small class="text-muted">Für Aufzählungen verwenden Sie • am Zeilenanfang</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Inhalt (English) <small class="text-muted">optional</small></label>
+                        <textarea class="form-control" name="inhalt_en" rows="4" placeholder="Content in English..."></textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Piktogramm / Bild (optional)</label>
@@ -1057,6 +1103,10 @@ require_once __DIR__ . '/templates/header.php';
                     <div class="mb-3">
                         <label class="form-label">Neuer Name *</label>
                         <input type="text" class="form-control" name="neue_kategorie" id="editKategorieNeu" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Neue Kategorie (English) <small class="text-muted">optional</small></label>
+                        <input type="text" class="form-control" name="neue_kategorie_en" id="editKategorieNeuEn" placeholder="New category name in English...">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1267,11 +1317,14 @@ function editTeilnehmer(id, vorname, nachname, firma) {
     new bootstrap.Modal(document.getElementById('editTeilnehmerModal')).show();
 }
 
-function editBaustein(id, kategorie, titel, inhalt, bildUrl) {
+function editBaustein(id, kategorie, titel, inhalt, bildUrl, kategorieEn, titelEn, inhaltEn) {
     document.getElementById('editBausteinId').value = id;
     document.getElementById('editKategorieSelect').value = kategorie;
     document.getElementById('editTitel').value = titel;
     document.getElementById('editInhalt').value = inhalt;
+    document.getElementById('edit_kategorie_en').value = kategorieEn || '';
+    document.getElementById('edit_titel_en').value = titelEn || '';
+    document.getElementById('edit_inhalt_en').value = inhaltEn || '';
 
     const currentBildDiv = document.getElementById('editCurrentBild');
     const deleteBildDiv = document.getElementById('editDeleteBildDiv');

@@ -69,6 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                     'massnahme_o' => $bibGef['massnahme_o'] ?? null,
                     'massnahme_p' => $bibGef['massnahme_p'] ?? null,
                     'massnahmen' => $bibGef['typische_massnahmen'],
+                    'titel_en' => $bibGef['titel_en'] ?? null,
+                    'beschreibung_en' => $bibGef['beschreibung_en'] ?? null,
+                    'massnahme_s_en' => $bibGef['massnahme_s_en'] ?? null,
+                    'massnahme_t_en' => $bibGef['massnahme_t_en'] ?? null,
+                    'massnahme_o_en' => $bibGef['massnahme_o_en'] ?? null,
+                    'massnahme_p_en' => $bibGef['massnahme_p_en'] ?? null,
+                    'verantwortlich_en' => $bibGef['verantwortlich_en'] ?? null,
                     'erstellt_von' => $userId
                 ]);
                 setFlashMessage('success', 'Gefährdung wurde hinzugefügt.');
@@ -104,6 +111,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                 'massnahmen' => !empty($allMassnahmen) ? implode("\n", $allMassnahmen) : null,
                 'gegenmassnahmen' => $_POST['gegenmassnahmen'] ?: null,
                 'verantwortlich' => $_POST['verantwortlich'] ?: null,
+                'titel_en' => $_POST['titel_en'] ?: null,
+                'beschreibung_en' => $_POST['beschreibung_en'] ?: null,
+                'massnahme_s_en' => $_POST['massnahme_s_en'] ?: null,
+                'massnahme_t_en' => $_POST['massnahme_t_en'] ?: null,
+                'massnahme_o_en' => $_POST['massnahme_o_en'] ?: null,
+                'massnahme_p_en' => $_POST['massnahme_p_en'] ?: null,
+                'verantwortlich_en' => $_POST['verantwortlich_en'] ?: null,
                 'schadenschwere_nach' => $_POST['schadenschwere_nach'] ?: null,
                 'wahrscheinlichkeit_nach' => $_POST['wahrscheinlichkeit_nach'] ?: null
             ];
@@ -195,6 +209,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                         'massnahme_p' => $gef['massnahme_p'] ?? null,
                         'massnahmen' => $gef['typische_massnahmen'],
                         'verantwortlich' => $gef['verantwortlich'] ?? null,
+                        'titel_en' => $gef['titel_en'] ?? null,
+                        'beschreibung_en' => $gef['beschreibung_en'] ?? null,
+                        'massnahme_s_en' => $gef['massnahme_s_en'] ?? null,
+                        'massnahme_t_en' => $gef['massnahme_t_en'] ?? null,
+                        'massnahme_o_en' => $gef['massnahme_o_en'] ?? null,
+                        'massnahme_p_en' => $gef['massnahme_p_en'] ?? null,
+                        'verantwortlich_en' => $gef['verantwortlich_en'] ?? null,
                         'schadenschwere_nach' => $gef['schadenschwere_nachher'] ?? null,
                         'wahrscheinlichkeit_nach' => $gef['wahrscheinlichkeit_nachher'] ?? null,
                         'erstellt_von' => $userId
@@ -251,7 +272,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                 'abbau_datum' => $_POST['abbau_datum'] ?: null,
                 'indoor_outdoor' => $_POST['indoor_outdoor'] ?? 'indoor',
                 'beschreibung' => $_POST['beschreibung'] ?: null,
-                'status' => $_POST['status'] ?? 'geplant'
+                'status' => $_POST['status'] ?? 'geplant',
+                'sprache' => $_POST['sprache'] ?? 'de'
             ];
 
             if (empty($data['name']) || empty($data['location'])) {
@@ -850,8 +872,18 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                             </div>
 
                             <div class="mb-3">
+                                <label class="form-label">Titel (English) <small class="text-muted">optional</small></label>
+                                <input type="text" class="form-control" name="titel_en" id="gef_titel_en">
+                            </div>
+
+                            <div class="mb-3">
                                 <label class="form-label">Gefährdung *</label>
                                 <textarea class="form-control" name="beschreibung" id="gef_beschreibung" rows="3" required></textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Beschreibung (English) <small class="text-muted">optional</small></label>
+                                <textarea class="form-control" name="beschreibung_en" id="gef_beschreibung_en" rows="3"></textarea>
                             </div>
 
                             <div class="row">
@@ -896,6 +928,7 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                                 </div>
                                 <div class="card-body py-2 stop-body" id="stop_s_body" style="display: none;">
                                     <textarea class="form-control form-control-sm" name="massnahme_s" id="gef_massnahme_s" rows="2" placeholder="Substitutions-Maßnahmen beschreiben..."></textarea>
+                                    <textarea class="form-control form-control-sm mt-1" name="massnahme_s_en" id="gef_massnahme_s_en" rows="1" placeholder="English measure..."></textarea>
                                 </div>
                             </div>
 
@@ -911,6 +944,7 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                                 </div>
                                 <div class="card-body py-2 stop-body" id="stop_t_body" style="display: none;">
                                     <textarea class="form-control form-control-sm" name="massnahme_t" id="gef_massnahme_t" rows="2" placeholder="Technische Maßnahmen beschreiben..."></textarea>
+                                    <textarea class="form-control form-control-sm mt-1" name="massnahme_t_en" id="gef_massnahme_t_en" rows="1" placeholder="English measure..."></textarea>
                                 </div>
                             </div>
 
@@ -926,6 +960,7 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                                 </div>
                                 <div class="card-body py-2 stop-body" id="stop_o_body" style="display: none;">
                                     <textarea class="form-control form-control-sm" name="massnahme_o" id="gef_massnahme_o" rows="2" placeholder="Organisatorische Maßnahmen beschreiben..."></textarea>
+                                    <textarea class="form-control form-control-sm mt-1" name="massnahme_o_en" id="gef_massnahme_o_en" rows="1" placeholder="English measure..."></textarea>
                                 </div>
                             </div>
 
@@ -941,12 +976,18 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                                 </div>
                                 <div class="card-body py-2 stop-body" id="stop_p_body" style="display: none;">
                                     <textarea class="form-control form-control-sm" name="massnahme_p" id="gef_massnahme_p" rows="2" placeholder="Persönliche Schutzausrüstung beschreiben..."></textarea>
+                                    <textarea class="form-control form-control-sm mt-1" name="massnahme_p_en" id="gef_massnahme_p_en" rows="1" placeholder="English measure..."></textarea>
                                 </div>
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label">Verantwortlich</label>
                                 <input type="text" class="form-control" name="verantwortlich" id="gef_verantwortlich">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Verantwortlich (English) <small class="text-muted">optional</small></label>
+                                <input type="text" class="form-control" name="verantwortlich_en" id="gef_verantwortlich_en">
                             </div>
 
                             <hr>
@@ -1093,6 +1134,17 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                                 <option value="outdoor" <?= $projekt['indoor_outdoor'] === 'outdoor' ? 'selected' : '' ?>>Outdoor</option>
                                 <option value="beides" <?= $projekt['indoor_outdoor'] === 'beides' ? 'selected' : '' ?>>Beides</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Sprache Exports</label>
+                            <select class="form-select" name="sprache">
+                                <option value="de" <?= ($projekt['sprache'] ?? 'de') === 'de' ? 'selected' : '' ?>>Deutsch</option>
+                                <option value="en" <?= ($projekt['sprache'] ?? 'de') === 'en' ? 'selected' : '' ?>>English</option>
+                            </select>
+                            <small class="text-muted">Sprache für PDF- und CSV-Exporte</small>
                         </div>
                     </div>
 
@@ -1316,6 +1368,15 @@ function editGefaehrdung(data) {
     toggleStopMassnahme('p');
 
     document.getElementById('gef_verantwortlich').value = data.verantwortlich || '';
+
+    // English fields
+    document.getElementById('gef_titel_en').value = data.titel_en || '';
+    document.getElementById('gef_beschreibung_en').value = data.beschreibung_en || '';
+    document.getElementById('gef_massnahme_s_en').value = data.massnahme_s_en || '';
+    document.getElementById('gef_massnahme_t_en').value = data.massnahme_t_en || '';
+    document.getElementById('gef_massnahme_o_en').value = data.massnahme_o_en || '';
+    document.getElementById('gef_massnahme_p_en').value = data.massnahme_p_en || '';
+    document.getElementById('gef_verantwortlich_en').value = data.verantwortlich_en || '';
 
     document.getElementById('gef_schadenschwere_nach').value = data.schadenschwere_nach || '';
     document.getElementById('gef_wahrscheinlichkeit_nach').value = data.wahrscheinlichkeit_nach || '';

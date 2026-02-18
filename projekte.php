@@ -62,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'aufbau_datum' => $_POST['aufbau_datum'] ?: null,
                 'abbau_datum' => $_POST['abbau_datum'] ?: null,
                 'indoor_outdoor' => $_POST['indoor_outdoor'] ?? 'indoor',
+                'sprache' => $_POST['sprache'] ?? 'de',
                 'beschreibung' => $_POST['beschreibung'] ?: null,
                 'status' => $_POST['status'] ?? 'geplant',
                 'erstellt_von' => $userId
@@ -407,6 +408,17 @@ function openZuweisungModal(projektId) {
                                 <option value="outdoor">Outdoor</option>
                                 <option value="beides">Beides</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Sprache Exports</label>
+                            <select class="form-select" name="sprache">
+                                <option value="de">Deutsch</option>
+                                <option value="en">English</option>
+                            </select>
+                            <small class="text-muted">Sprache für PDF- und CSV-Exporte</small>
                         </div>
                     </div>
 
