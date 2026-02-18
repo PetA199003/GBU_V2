@@ -401,10 +401,9 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
                 <td><?= htmlspecialchars($t['nachname']) ?></td>
                 <td><?= htmlspecialchars($t['vorname']) ?></td>
                 <td style="font-size: 8pt;"><?= htmlspecialchars($t['firma'] ?? '') ?></td>
-                <td style="font-size: 9pt;">
+                <td style="font-size: 8pt; white-space: nowrap;">
                     <?php if ($t['unterschrieben_am']): ?>
-                    <?= date('d.m.Y', strtotime($t['unterschrieben_am'])) ?><br>
-                    <span style="color: #666;"><?= date('H:i', strtotime($t['unterschrieben_am'])) ?> Uhr</span>
+                    <?= date('d.m.Y', strtotime($t['unterschrieben_am'])) ?>, <?= date('H:i', strtotime($t['unterschrieben_am'])) ?>
                     <?php endif; ?>
                 </td>
                 <td class="unterschrift">
