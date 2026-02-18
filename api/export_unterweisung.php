@@ -290,8 +290,9 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
         table.teilnehmer { width: 100%; border-collapse: collapse; margin-top: 15px; }
         table.teilnehmer th, table.teilnehmer td { border: 1px solid #000; padding: 8px; }
         table.teilnehmer th { background: #f0f0f0; text-align: left; }
-        table.teilnehmer tbody td { height: 40px; vertical-align: middle; }
-        table.teilnehmer td.unterschrift img { max-height: 35px; }
+        table.teilnehmer tbody td { height: 40px; vertical-align: middle; padding: 4px 8px; line-height: 1.2; }
+        table.teilnehmer td.unterschrift { padding-top: 2px; padding-bottom: 2px; }
+        table.teilnehmer td.unterschrift img { max-height: 32px; max-width: 100%; display: block; }
         .page-number { text-align: center; font-size: 8pt; margin-top: 20px; }
         @media print {
             body { padding: 10mm; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
