@@ -69,7 +69,7 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
     <title>Sicherheitsunterweisung - <?= htmlspecialchars($unterweisung['projekt_name']) ?></title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.4; padding: 15mm; padding-bottom: 20mm; }
+        body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.4; padding: 15mm; }
         h1 { font-size: 16pt; text-align: center; margin-bottom: 5px; }
         h2 {
             font-size: 11pt;
@@ -94,30 +94,55 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
             break-inside: avoid;
             page-break-inside: avoid;
         }
+        /* Wrapper-Tabelle für wiederholenden Footer auf jeder Druckseite */
+        .print-wrapper { width: 100%; }
+        .print-wrapper > thead { display: table-header-group; }
+        .print-wrapper > tfoot { display: table-footer-group; }
+        .print-wrapper > tbody { display: table-row-group; }
+        .print-footer-content {
+            text-align: center;
+            font-size: 8pt;
+            color: #666;
+            padding-top: 8px;
+            border-top: 1px solid #ccc;
+        }
+        /* Platzhalter damit Inhalt nicht vom Footer überdeckt wird */
+        .footer-spacer { height: 15px; }
         @page {
-            margin-bottom: 20mm;
-            @bottom-center {
-                content: counter(page) " / " counter(pages);
-                font-size: 8pt;
-                color: #666;
-            }
+            margin: 10mm;
         }
         @media print {
-            body { padding: 10mm; padding-bottom: 20mm; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            .no-print { display: none; }
+            body { padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .no-print { display: none !important; }
             h2 { background: #FFC107 !important; -webkit-print-color-adjust: exact !important; }
             .kategorie-block {
                 break-inside: avoid;
                 page-break-inside: avoid;
             }
         }
-        .print-btn { position: fixed; top: 10px; right: 10px; padding: 10px 20px; background: #0d6efd; color: white; border: none; cursor: pointer; border-radius: 4px; }
-        .back-btn { position: fixed; top: 10px; right: 200px; padding: 10px 20px; background: #6c757d; color: white; border: none; cursor: pointer; border-radius: 4px; text-decoration: none; }
+        @media screen {
+            .print-footer-content { display: none; }
+            .footer-spacer { display: none; }
+        }
+        .print-btn { position: fixed; top: 10px; right: 10px; padding: 10px 20px; background: #0d6efd; color: white; border: none; cursor: pointer; border-radius: 4px; z-index: 1000; }
+        .back-btn { position: fixed; top: 10px; right: 200px; padding: 10px 20px; background: #6c757d; color: white; border: none; cursor: pointer; border-radius: 4px; text-decoration: none; z-index: 1000; }
     </style>
 </head>
 <body>
     <a href="<?= BASE_URL ?>/unterweisung.php?projekt_id=<?= htmlspecialchars($unterweisung['projekt_id']) ?>" class="back-btn no-print">← Zurück zur Unterweisung</a>
     <button class="print-btn no-print" onclick="window.print()">Drucken / PDF</button>
+
+    <table class="print-wrapper">
+        <thead><tr><td>&nbsp;</td></tr></thead>
+        <tfoot>
+            <tr><td>
+                <div class="print-footer-content">
+                    Seite <span class="page-num"></span> — <?= htmlspecialchars($unterweisung['projekt_name']) ?>
+                </div>
+                <div class="footer-spacer"></div>
+            </td></tr>
+        </tfoot>
+        <tbody><tr><td>
 
     <h1>Regeln für Arbeiten bei Produktionen und Veranstaltungen</h1>
 
@@ -173,6 +198,22 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
     <p style="margin-top: 30px; font-size: 8pt; color: #666;">
         Erstellt von <?= htmlspecialchars($unterweisung['durchgefuehrt_von'] ?? 'Unbekannt') ?> am <?= date('d.m.Y') ?>
     </p>
+
+        </td></tr></tbody>
+    </table>
+
+    <script>
+    // Seitenzahlen im Footer: Gesamtanzahl berechnen und einfügen
+    window.addEventListener('beforeprint', function() {
+        var contentHeight = document.querySelector('.print-wrapper').offsetHeight;
+        // A4: ca. 1045px bei 96dpi mit 10mm Rand
+        var pageHeight = 1045;
+        var totalPages = Math.ceil(contentHeight / pageHeight) || 1;
+        document.querySelectorAll('.page-num').forEach(function(el) {
+            el.textContent = '1 / ' + totalPages;
+        });
+    });
+    </script>
 </body>
 </html>
 <?php
