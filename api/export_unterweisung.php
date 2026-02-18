@@ -95,34 +95,33 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
             break-inside: avoid;
             page-break-inside: avoid;
         }
-        /* Seiten-Container für individuelle Seitennummern */
-        .page-container { position: relative; }
-        .page-footer {
+        /* Footer auf jeder Druckseite (position: fixed wiederholt in Chrome) */
+        .print-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
             text-align: center;
             font-size: 8pt;
             color: #666;
-            padding-top: 8px;
+            padding: 4px 10mm;
             border-top: 1px solid #ccc;
-            margin-top: 15px;
-        }
-        .page-divider {
-            page-break-before: always;
         }
         @page {
             margin: 10mm;
         }
         @media print {
-            body { padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { padding: 0; padding-bottom: 30px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             .no-print { display: none !important; }
             h2 { background: #FFC107 !important; -webkit-print-color-adjust: exact !important; }
             .kategorie-block {
                 break-inside: avoid;
                 page-break-inside: avoid;
             }
-            .page-footer { display: block; }
+            .print-footer { display: block; }
         }
         @media screen {
-            .page-footer { display: none; }
+            .print-footer { display: none; }
         }
         .print-btn { position: fixed; top: 10px; right: 10px; padding: 10px 20px; background: #0d6efd; color: white; border: none; cursor: pointer; border-radius: 4px; z-index: 1000; }
         .back-btn { position: fixed; top: 10px; right: 200px; padding: 10px 20px; background: #6c757d; color: white; border: none; cursor: pointer; border-radius: 4px; text-decoration: none; z-index: 1000; }
@@ -131,6 +130,10 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
 <body>
     <a href="<?= BASE_URL ?>/unterweisung.php?projekt_id=<?= htmlspecialchars($unterweisung['projekt_id']) ?>" class="back-btn no-print">← Zurück zur Unterweisung</a>
     <button class="print-btn no-print" onclick="window.print()">Drucken / PDF</button>
+
+    <div class="print-footer">
+        <span id="page-info"></span> — <?= htmlspecialchars($unterweisung['projekt_name']) ?>
+    </div>
 
     <div id="content-wrapper">
 
@@ -207,50 +210,16 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
     </div>
 
     <script>
-    var projektName = <?= json_encode($unterweisung['projekt_name']) ?>;
-    var paginationDone = false;
-
     window.addEventListener('beforeprint', function() {
-        if (paginationDone) return;
-        paginationDone = true;
-
         var wrapper = document.getElementById('content-wrapper');
-        // Alle direkten Kind-Elemente als verschiebbare Blöcke sammeln
-        var blocks = Array.from(wrapper.children);
-
-        // A4 druckbare Höhe: ca. 980px bei 96dpi mit 10mm Rand (etwas kleiner für Footer)
-        var PAGE_HEIGHT = 940;
-        var pages = [];
-        var currentPage = document.createElement('div');
-        currentPage.className = 'page-container';
-        var currentHeight = 0;
-
-        blocks.forEach(function(block) {
-            var h = block.offsetHeight + 10; // 10px Margin-Puffer
-            if (currentHeight + h > PAGE_HEIGHT && currentHeight > 0) {
-                pages.push(currentPage);
-                currentPage = document.createElement('div');
-                currentPage.className = 'page-container page-divider';
-                currentHeight = 0;
-            }
-            currentPage.appendChild(block);
-            currentHeight += h;
-        });
-        if (currentPage.children.length > 0) {
-            pages.push(currentPage);
+        var totalHeight = wrapper.offsetHeight;
+        // A4 druckbare Höhe bei 96dpi mit 10mm Rand
+        var PAGE_HEIGHT = 980;
+        var totalPages = Math.max(1, Math.ceil(totalHeight / PAGE_HEIGHT));
+        var info = document.getElementById('page-info');
+        if (info) {
+            info.textContent = 'Seiten: ' + totalPages;
         }
-
-        var totalPages = pages.length;
-
-        // Wrapper leeren und Seiten mit Footer einfügen
-        wrapper.innerHTML = '';
-        pages.forEach(function(page, idx) {
-            var footer = document.createElement('div');
-            footer.className = 'page-footer';
-            footer.textContent = 'Seite ' + (idx + 1) + ' / ' + totalPages + ' — ' + projektName;
-            page.appendChild(footer);
-            wrapper.appendChild(page);
-        });
     });
     </script>
 </body>
