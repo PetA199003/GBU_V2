@@ -19,8 +19,13 @@ if (!$id) {
 
 $db = Database::getInstance();
 
-// Projekt laden
-$projekt = $db->fetchOne("SELECT * FROM projekte WHERE id = ?", [$id]);
+// Projekt laden (inkl. Firmenname)
+$projekt = $db->fetchOne("
+    SELECT p.*, f.name as firma_name
+    FROM projekte p
+    LEFT JOIN firmen f ON p.firma_id = f.id
+    WHERE p.id = ?
+", [$id]);
 
 if (!$projekt) {
     die('Projekt nicht gefunden');
@@ -83,13 +88,26 @@ uasort($gefNachKategorie, fn($a, $b) => ($a['nummer'] ?? 999) <=> ($b['nummer'] 
 $ersteller = $db->fetchOne("SELECT vorname, nachname FROM benutzer WHERE id = ?", [$projekt['erstellt_von']]);
 $erstellerName = $ersteller ? $ersteller['vorname'] . ' ' . $ersteller['nachname'] : 'Unbekannt';
 
+// Platzhalter-Variablen vorbereiten
+$placeholderVars = [
+    'unternehmen' => $projekt['firma_name'] ?? '',
+    'projekt'     => $projekt['name'] ?? '',
+    'ort'         => $projekt['location'] ?? '',
+    'datum_von'   => $projekt['zeitraum_von'] ? date('d.m.Y', strtotime($projekt['zeitraum_von'])) : '',
+    'datum_bis'   => $projekt['zeitraum_bis'] ? date('d.m.Y', strtotime($projekt['zeitraum_bis'])) : '',
+    'zeitraum'    => ($projekt['zeitraum_von'] && $projekt['zeitraum_bis'])
+        ? date('d.m.', strtotime($projekt['zeitraum_von'])) . ' - ' . date('d.m.Y', strtotime($projekt['zeitraum_bis']))
+        : '',
+    'unterweiser' => $erstellerName,
+];
+
 if ($format === 'excel' || $format === 'csv') {
-    generateExcel($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerName, $lang);
+    generateExcel($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerName, $lang, $placeholderVars);
 } else {
-    generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerName, $lang);
+    generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerName, $lang, $placeholderVars);
 }
 
-function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerName, $lang) {
+function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerName, $lang, $vars) {
     ?>
 <!DOCTYPE html>
 <html lang="<?= $lang ?>">
@@ -279,7 +297,7 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
             <tr>
                 <td class="nummer"><?= $vollNummer ?></td>
                 <td>
-                    <strong><?= htmlspecialchars(tField($gef, 'titel', $lang)) ?></strong>
+                    <strong><?= htmlspecialchars(replacePlaceholders(tField($gef, 'titel', $lang), $vars)) ?></strong>
                     <?php if ($gef['unterkategorie_name']): ?>
                     <br><span class="small"><?= $katData['nummer'] ?>.<?= $gef['unterkategorie_nummer'] ?> <?= htmlspecialchars(tField($gef, 'unterkategorie_name', $lang)) ?></span>
                     <?php endif; ?>
@@ -304,22 +322,22 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
                     if (!empty($gef['massnahme_s']) || ($lang === 'en' && !empty($gef['massnahme_s_en']))):
                         $hasMassnahmen = true;
                     ?>
-                    <div class="massnahme-item"><span class="massnahme-label stop-badge stop-s">S</span> <?= htmlspecialchars(tField($gef, 'massnahme_s', $lang)) ?></div>
+                    <div class="massnahme-item"><span class="massnahme-label stop-badge stop-s">S</span> <?= htmlspecialchars(replacePlaceholders(tField($gef, 'massnahme_s', $lang), $vars)) ?></div>
                     <?php endif; ?>
                     <?php if (!empty($gef['massnahme_t']) || ($lang === 'en' && !empty($gef['massnahme_t_en']))):
                         $hasMassnahmen = true;
                     ?>
-                    <div class="massnahme-item"><span class="massnahme-label stop-badge stop-t">T</span> <?= htmlspecialchars(tField($gef, 'massnahme_t', $lang)) ?></div>
+                    <div class="massnahme-item"><span class="massnahme-label stop-badge stop-t">T</span> <?= htmlspecialchars(replacePlaceholders(tField($gef, 'massnahme_t', $lang), $vars)) ?></div>
                     <?php endif; ?>
                     <?php if (!empty($gef['massnahme_o']) || ($lang === 'en' && !empty($gef['massnahme_o_en']))):
                         $hasMassnahmen = true;
                     ?>
-                    <div class="massnahme-item"><span class="massnahme-label stop-badge stop-o">O</span> <?= htmlspecialchars(tField($gef, 'massnahme_o', $lang)) ?></div>
+                    <div class="massnahme-item"><span class="massnahme-label stop-badge stop-o">O</span> <?= htmlspecialchars(replacePlaceholders(tField($gef, 'massnahme_o', $lang), $vars)) ?></div>
                     <?php endif; ?>
                     <?php if (!empty($gef['massnahme_p']) || ($lang === 'en' && !empty($gef['massnahme_p_en']))):
                         $hasMassnahmen = true;
                     ?>
-                    <div class="massnahme-item"><span class="massnahme-label stop-badge stop-p">P</span> <?= htmlspecialchars(tField($gef, 'massnahme_p', $lang)) ?></div>
+                    <div class="massnahme-item"><span class="massnahme-label stop-badge stop-p">P</span> <?= htmlspecialchars(replacePlaceholders(tField($gef, 'massnahme_p', $lang), $vars)) ?></div>
                     <?php endif; ?>
                     <?php if (!$hasMassnahmen && !empty($gef['massnahmen'])): ?>
                     <?= nl2br(htmlspecialchars($gef['massnahmen'])) ?>
@@ -328,7 +346,7 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
                 <td class="text-center"><?= $gef['schadenschwere_nach'] ?: '-' ?></td>
                 <td class="text-center"><?= $gef['wahrscheinlichkeit_nach'] ?: '-' ?></td>
                 <td class="text-center <?= $rClassNach ?>"><?= $rScoreNach ?: '-' ?></td>
-                <td class="small"><?= htmlspecialchars(tField($gef, 'verantwortlich', $lang)) ?></td>
+                <td class="small"><?= htmlspecialchars(replacePlaceholders(tField($gef, 'verantwortlich', $lang), $vars)) ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
@@ -349,7 +367,7 @@ function generatePDFView($projekt, $gefaehrdungen, $gefNachKategorie, $ersteller
     <?php
 }
 
-function generateExcel($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerName, $lang) {
+function generateExcel($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerName, $lang, $vars) {
     // CSV-Export (kann in Excel geöffnet werden)
     $filename = 'GBU_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $projekt['name']) . '_' . date('Y-m-d') . '.csv';
     header('Content-Type: text/csv; charset=utf-8');
@@ -409,8 +427,8 @@ function generateExcel($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerNa
                 $vollNummer,
                 $katData['name'],
                 tField($gef, 'unterkategorie_name', $lang),
-                tField($gef, 'titel', $lang),
-                tField($gef, 'beschreibung', $lang),
+                replacePlaceholders(tField($gef, 'titel', $lang), $vars),
+                replacePlaceholders(tField($gef, 'beschreibung', $lang), $vars),
                 ($gef['gefaehrdungsart_nummer'] ?? '') . ' ' . tField($gef, 'gefaehrdungsart_name', $lang),
                 $gef['schadenschwere'],
                 $gef['wahrscheinlichkeit'],
@@ -419,14 +437,14 @@ function generateExcel($projekt, $gefaehrdungen, $gefNachKategorie, $erstellerNa
                 $gef['stop_t'] ? 'X' : '',
                 $gef['stop_o'] ? 'X' : '',
                 $gef['stop_p'] ? 'X' : '',
-                tField($gef, 'massnahme_s', $lang),
-                tField($gef, 'massnahme_t', $lang),
-                tField($gef, 'massnahme_o', $lang),
-                tField($gef, 'massnahme_p', $lang),
+                replacePlaceholders(tField($gef, 'massnahme_s', $lang), $vars),
+                replacePlaceholders(tField($gef, 'massnahme_t', $lang), $vars),
+                replacePlaceholders(tField($gef, 'massnahme_o', $lang), $vars),
+                replacePlaceholders(tField($gef, 'massnahme_p', $lang), $vars),
                 $gef['schadenschwere_nach'] ?? '',
                 $gef['wahrscheinlichkeit_nach'] ?? '',
                 $gef['risikobewertung_nach'] ?? '',
-                tField($gef, 'verantwortlich', $lang)
+                replacePlaceholders(tField($gef, 'verantwortlich', $lang), $vars)
             ], ';');
         }
     }

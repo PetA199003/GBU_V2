@@ -218,3 +218,32 @@ function getRiskLevelTranslated(int $score, string $lang = 'de'): string {
     if ($score <= 8) return t('risk_high', $lang);
     return t('risk_very_high', $lang);
 }
+
+/**
+ * Ersetzt Platzhalter-Variablen in einem Text.
+ *
+ * Verfügbare Platzhalter:
+ *   %Unternehmen   — Firmenname
+ *   %Projekt        — Projektname
+ *   %Ort            — Location / Veranstaltungsort
+ *   %DatumVon       — Zeitraum von (dd.mm.yyyy)
+ *   %DatumBis       — Zeitraum bis (dd.mm.yyyy)
+ *   %Zeitraum       — Zeitraum komplett (dd.mm. - dd.mm.yyyy)
+ *   %Unterweiser    — Durchgeführt von (Name des Unterweisers)
+ *
+ * @param string $text  Der Text mit Platzhaltern
+ * @param array  $vars  Assoziatives Array mit den Werten
+ * @return string       Text mit ersetzten Platzhaltern
+ */
+function replacePlaceholders(string $text, array $vars): string {
+    $placeholders = [
+        '%Unternehmen' => $vars['unternehmen'] ?? '',
+        '%Projekt'     => $vars['projekt'] ?? '',
+        '%Ort'         => $vars['ort'] ?? '',
+        '%DatumVon'    => $vars['datum_von'] ?? '',
+        '%DatumBis'    => $vars['datum_bis'] ?? '',
+        '%Zeitraum'    => $vars['zeitraum'] ?? '',
+        '%Unterweiser' => $vars['unterweiser'] ?? '',
+    ];
+    return str_replace(array_keys($placeholders), array_values($placeholders), $text);
+}

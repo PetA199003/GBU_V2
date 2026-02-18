@@ -21,7 +21,7 @@ $db = Database::getInstance();
 
 // Unterweisung laden (mit Firmen-Logo und Projektsprache)
 $unterweisung = $db->fetchOne("
-    SELECT pu.*, p.name as projekt_name, p.location, p.zeitraum_von, p.zeitraum_bis, p.firma_id, p.sprache, f.logo_url as firma_logo
+    SELECT pu.*, p.name as projekt_name, p.location, p.zeitraum_von, p.zeitraum_bis, p.firma_id, p.sprache, f.logo_url as firma_logo, f.name as firma_name
     FROM projekt_unterweisungen pu
     JOIN projekte p ON pu.projekt_id = p.id
     LEFT JOIN firmen f ON p.firma_id = f.id
@@ -34,6 +34,19 @@ if (!$unterweisung) {
 
 // Projektsprache bestimmen
 $lang = $unterweisung['sprache'] ?? 'de';
+
+// Platzhalter-Variablen vorbereiten
+$placeholderVars = [
+    'unternehmen' => $unterweisung['firma_name'] ?? '',
+    'projekt'     => $unterweisung['projekt_name'] ?? '',
+    'ort'         => $unterweisung['location'] ?? '',
+    'datum_von'   => $unterweisung['zeitraum_von'] ? date('d.m.Y', strtotime($unterweisung['zeitraum_von'])) : '',
+    'datum_bis'   => $unterweisung['zeitraum_bis'] ? date('d.m.Y', strtotime($unterweisung['zeitraum_bis'])) : '',
+    'zeitraum'    => ($unterweisung['zeitraum_von'] && $unterweisung['zeitraum_bis'])
+        ? date('d.m.', strtotime($unterweisung['zeitraum_von'])) . ' - ' . date('d.m.Y', strtotime($unterweisung['zeitraum_bis']))
+        : '',
+    'unterweiser' => $unterweisung['durchgefuehrt_von'] ?? '',
+];
 
 // Ausgewählte Bausteine laden (inkl. EN-Felder)
 $bausteine = $db->fetchAll("
@@ -62,12 +75,12 @@ $teilnehmer = $db->fetchAll("
 ", [$unterweisungId]);
 
 if ($type === 'teilnehmerliste') {
-    generateTeilnehmerliste($unterweisung, $teilnehmer, $lang);
+    generateTeilnehmerliste($unterweisung, $teilnehmer, $lang, $placeholderVars);
 } else {
-    generateUnterweisung($unterweisung, $bausteineNachKat, $lang);
+    generateUnterweisung($unterweisung, $bausteineNachKat, $lang, $placeholderVars);
 }
 
-function generateUnterweisung($unterweisung, $bausteineNachKat, $lang) {
+function generateUnterweisung($unterweisung, $bausteineNachKat, $lang, $vars) {
 ?>
 <!DOCTYPE html>
 <html lang="<?= $lang ?>">
@@ -199,8 +212,8 @@ function generateUnterweisung($unterweisung, $bausteineNachKat, $lang) {
                 </td>
                 <td>
                     <?php
-                    $bausteinTitel = tField($b, 'titel', $lang);
-                    $bausteinInhalt = tField($b, 'inhalt', $lang);
+                    $bausteinTitel = replacePlaceholders(tField($b, 'titel', $lang), $vars);
+                    $bausteinInhalt = replacePlaceholders(tField($b, 'inhalt', $lang), $vars);
                     ?>
                     <?php if (count($bausteine) > 1 || $bausteinTitel !== $kategorie): ?>
                     <strong><?= htmlspecialchars($bausteinTitel) ?></strong><br>
@@ -224,7 +237,7 @@ function generateUnterweisung($unterweisung, $bausteineNachKat, $lang) {
 <?php
 }
 
-function generateTeilnehmerliste($unterweisung, $teilnehmer, $lang) {
+function generateTeilnehmerliste($unterweisung, $teilnehmer, $lang, $vars) {
 ?>
 <!DOCTYPE html>
 <html lang="<?= $lang ?>">
