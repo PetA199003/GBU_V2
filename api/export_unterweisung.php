@@ -17,11 +17,12 @@ if (!$unterweisungId) {
 
 $db = Database::getInstance();
 
-// Unterweisung laden
+// Unterweisung laden (mit Firmen-Logo)
 $unterweisung = $db->fetchOne("
-    SELECT pu.*, p.name as projekt_name, p.location, p.zeitraum_von, p.zeitraum_bis
+    SELECT pu.*, p.name as projekt_name, p.location, p.zeitraum_von, p.zeitraum_bis, p.firma_id, f.logo_url as firma_logo
     FROM projekt_unterweisungen pu
     JOIN projekte p ON pu.projekt_id = p.id
+    LEFT JOIN firmen f ON p.firma_id = f.id
     WHERE pu.id = ?
 ", [$unterweisungId]);
 
@@ -144,7 +145,22 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
         </tfoot>
         <tbody><tr><td>
 
-    <h1>Regeln für Arbeiten bei Produktionen und Veranstaltungen</h1>
+    <?php
+    // Firmen-Logo URL vorbereiten
+    $firmaLogoUrl = $unterweisung['firma_logo'] ?? null;
+    if ($firmaLogoUrl && !preg_match('/^https?:\/\//', $firmaLogoUrl)) {
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'];
+        $firmaLogoUrl = $protocol . '://' . $host . $firmaLogoUrl;
+    }
+    ?>
+
+    <div style="position: relative;">
+        <?php if ($firmaLogoUrl): ?>
+        <img src="<?= htmlspecialchars($firmaLogoUrl) ?>" alt="Firmenlogo" style="position: absolute; top: 0; right: 0; max-width: 150px; max-height: 60px; object-fit: contain;" onerror="this.style.display='none'">
+        <?php endif; ?>
+        <h1>Regeln für Arbeiten bei Produktionen und Veranstaltungen</h1>
+    </div>
 
     <div class="header-info">
         <table>
@@ -272,10 +288,25 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer) {
     <a href="<?= BASE_URL ?>/unterweisung.php?projekt_id=<?= htmlspecialchars($unterweisung['projekt_id']) ?>" class="back-btn no-print">← Zurück zur Unterweisung</a>
     <button class="print-btn no-print" onclick="window.print()">Drucken / PDF</button>
 
-    <h1>Bestätigung der Unterweisung</h1>
-    <div class="subtitle">
-        nach § 4 der Unfallverhütungsvorschrift<br>
-        "Grundsätze der Prävention" DGUV Vorschrift 1 / VUV
+    <?php
+    // Firmen-Logo URL vorbereiten
+    $firmaLogoUrl = $unterweisung['firma_logo'] ?? null;
+    if ($firmaLogoUrl && !preg_match('/^https?:\/\//', $firmaLogoUrl)) {
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'];
+        $firmaLogoUrl = $protocol . '://' . $host . $firmaLogoUrl;
+    }
+    ?>
+
+    <div style="position: relative;">
+        <?php if ($firmaLogoUrl): ?>
+        <img src="<?= htmlspecialchars($firmaLogoUrl) ?>" alt="Firmenlogo" style="position: absolute; top: 0; right: 0; max-width: 150px; max-height: 60px; object-fit: contain;" onerror="this.style.display='none'">
+        <?php endif; ?>
+        <h1>Bestätigung der Unterweisung</h1>
+        <div class="subtitle">
+            nach § 4 der Unfallverhütungsvorschrift<br>
+            "Grundsätze der Prävention" DGUV Vorschrift 1 / VUV
+        </div>
     </div>
 
     <div class="header-info">

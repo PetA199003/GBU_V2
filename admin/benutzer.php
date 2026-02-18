@@ -37,6 +37,12 @@ try {
     if ($colExists['cnt'] == 0) {
         $db->query("ALTER TABLE benutzer ADD COLUMN firma_id INT UNSIGNED DEFAULT NULL AFTER rolle");
     }
+    // Spalte logo_url zu firmen hinzufügen falls nicht vorhanden
+    $logoColExists = $db->fetchOne("SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'firmen' AND COLUMN_NAME = 'logo_url'");
+    if ($logoColExists['cnt'] == 0) {
+        $db->query("ALTER TABLE firmen ADD COLUMN logo_url VARCHAR(500) DEFAULT NULL");
+    }
 } catch (Exception $e) {
     // Ignorieren
 }
@@ -85,6 +91,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             break;
 
+        case 'edit_firma':
+            $firmaId = (int)$_POST['firma_id'];
+            $updateData = [
+                'name' => trim($_POST['firma_name'] ?? ''),
+                'ort' => $_POST['firma_ort'] ?? null
+            ];
+
+            // Logo hochladen
+            if (isset($_FILES['firma_logo']) && $_FILES['firma_logo']['error'] === UPLOAD_ERR_OK) {
+                $uploadDir = __DIR__ . '/../uploads/logos/';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
+                // Altes Logo löschen
+                $alteFirma = $db->fetchOne("SELECT logo_url FROM firmen WHERE id = ?", [$firmaId]);
+                if ($alteFirma && $alteFirma['logo_url']) {
+                    $oldFile = __DIR__ . '/..' . str_replace(BASE_URL, '', $alteFirma['logo_url']);
+                    if (file_exists($oldFile)) {
+                        @unlink($oldFile);
+                    }
+                }
+                $ext = strtolower(pathinfo($_FILES['firma_logo']['name'], PATHINFO_EXTENSION));
+                $filename = 'logo_' . $firmaId . '_' . time() . '.' . $ext;
+                if (move_uploaded_file($_FILES['firma_logo']['tmp_name'], $uploadDir . $filename)) {
+                    $updateData['logo_url'] = BASE_URL . '/uploads/logos/' . $filename;
+                }
+            }
+
+            // Logo löschen wenn gewünscht
+            if (isset($_POST['delete_logo']) && $_POST['delete_logo'] == '1') {
+                $alteFirma = $db->fetchOne("SELECT logo_url FROM firmen WHERE id = ?", [$firmaId]);
+                if ($alteFirma && $alteFirma['logo_url']) {
+                    $oldFile = __DIR__ . '/..' . str_replace(BASE_URL, '', $alteFirma['logo_url']);
+                    if (file_exists($oldFile)) {
+                        @unlink($oldFile);
+                    }
+                }
+                $updateData['logo_url'] = null;
+            }
+
+            if (!empty($updateData['name'])) {
+                $db->update('firmen', $updateData, 'id = :id', ['id' => $firmaId]);
+                setFlashMessage('success', 'Unternehmen wurde aktualisiert.');
+            }
+            break;
+
         case 'delete_firma':
             $firmaId = (int)$_POST['firma_id'];
             // Prüfen ob noch Benutzer zugewiesen sind
@@ -92,6 +144,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($userCount['cnt'] > 0) {
                 setFlashMessage('error', 'Unternehmen kann nicht gelöscht werden, da noch Benutzer zugewiesen sind.');
             } else {
+                // Logo löschen
+                $alteFirma = $db->fetchOne("SELECT logo_url FROM firmen WHERE id = ?", [$firmaId]);
+                if ($alteFirma && $alteFirma['logo_url']) {
+                    $oldFile = __DIR__ . '/..' . str_replace(BASE_URL, '', $alteFirma['logo_url']);
+                    if (file_exists($oldFile)) {
+                        @unlink($oldFile);
+                    }
+                }
                 $db->delete('firmen', 'id = ?', [$firmaId]);
                 setFlashMessage('success', 'Unternehmen wurde gelöscht.');
             }
@@ -445,9 +505,10 @@ require_once __DIR__ . '/../templates/header.php';
                 <?php if (empty($firmen)): ?>
                 <p class="text-muted">Noch keine Unternehmen vorhanden.</p>
                 <?php else: ?>
-                <table class="table table-sm">
+                <table class="table table-sm align-middle">
                     <thead>
                         <tr>
+                            <th style="width: 50px;">Logo</th>
                             <th>Name</th>
                             <th>Ort</th>
                             <th>Benutzer</th>
@@ -459,10 +520,21 @@ require_once __DIR__ . '/../templates/header.php';
                             $userCount = $db->fetchOne("SELECT COUNT(*) as cnt FROM benutzer WHERE firma_id = ?", [$firma['id']]);
                         ?>
                         <tr>
+                            <td>
+                                <?php if (!empty($firma['logo_url'])): ?>
+                                <img src="<?= sanitize($firma['logo_url']) ?>" alt="Logo" style="max-width: 40px; max-height: 40px; object-fit: contain;">
+                                <?php else: ?>
+                                <span class="text-muted"><i class="bi bi-image" style="font-size: 1.2rem;"></i></span>
+                                <?php endif; ?>
+                            </td>
                             <td><strong><?= sanitize($firma['name']) ?></strong></td>
                             <td><?= sanitize($firma['ort'] ?? '-') ?></td>
                             <td><span class="badge bg-secondary"><?= $userCount['cnt'] ?></span></td>
-                            <td class="text-end">
+                            <td class="text-end text-nowrap">
+                                <button type="button" class="btn btn-sm btn-outline-primary" title="Bearbeiten"
+                                        onclick="editFirma(<?= $firma['id'] ?>, '<?= addslashes(sanitize($firma['name'])) ?>', '<?= addslashes(sanitize($firma['ort'] ?? '')) ?>', '<?= addslashes(sanitize($firma['logo_url'] ?? '')) ?>')">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
                                 <?php if ($userCount['cnt'] == 0): ?>
                                 <form method="POST" class="d-inline" onsubmit="return confirm('Unternehmen wirklich löschen?')">
                                     <input type="hidden" name="action" value="delete_firma">
@@ -472,7 +544,7 @@ require_once __DIR__ . '/../templates/header.php';
                                     </button>
                                 </form>
                                 <?php else: ?>
-                                <span class="text-muted small">Benutzer zugewiesen</span>
+                                <span class="text-muted small ms-1">Benutzer zugewiesen</span>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -488,6 +560,54 @@ require_once __DIR__ . '/../templates/header.php';
     </div>
 </div>
 
+<!-- Modal: Unternehmen bearbeiten -->
+<div class="modal fade" id="editFirmaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="edit_firma">
+                <input type="hidden" name="firma_id" id="editFirmaId">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Unternehmen bearbeiten</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Name *</label>
+                        <input type="text" class="form-control" name="firma_name" id="editFirmaName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ort</label>
+                        <input type="text" class="form-control" name="firma_ort" id="editFirmaOrt">
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <label class="form-label">Aktuelles Logo</label>
+                        <div id="editFirmaCurrentLogo" class="mb-2"></div>
+                        <div id="editFirmaDeleteLogoDiv" class="form-check mb-2" style="display: none;">
+                            <input class="form-check-input" type="checkbox" name="delete_logo" value="1" id="editFirmaDeleteLogo">
+                            <label class="form-check-label text-danger" for="editFirmaDeleteLogo">
+                                <i class="bi bi-trash me-1"></i>Logo entfernen
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Neues Logo hochladen</label>
+                        <input type="file" class="form-control" name="firma_logo" accept="image/*">
+                        <small class="text-muted">Empfohlen: PNG oder SVG mit transparentem Hintergrund, max. 500x200px</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>Speichern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 function editBenutzer(user) {
     document.getElementById('edit_user_id').value = user.id;
@@ -499,6 +619,32 @@ function editBenutzer(user) {
     document.getElementById('edit_passwort').value = '';
 
     new bootstrap.Modal(document.getElementById('editBenutzerModal')).show();
+}
+
+function editFirma(id, name, ort, logoUrl) {
+    document.getElementById('editFirmaId').value = id;
+    document.getElementById('editFirmaName').value = name;
+    document.getElementById('editFirmaOrt').value = ort;
+    document.getElementById('editFirmaDeleteLogo').checked = false;
+
+    const currentLogoDiv = document.getElementById('editFirmaCurrentLogo');
+    const deleteLogoDiv = document.getElementById('editFirmaDeleteLogoDiv');
+
+    if (logoUrl) {
+        currentLogoDiv.innerHTML = '<img src="' + logoUrl + '" alt="Logo" style="max-width: 150px; max-height: 80px; object-fit: contain; border: 1px solid #ddd; padding: 5px; border-radius: 4px;">';
+        deleteLogoDiv.style.display = 'block';
+    } else {
+        currentLogoDiv.innerHTML = '<span class="text-muted"><i class="bi bi-image me-1"></i>Kein Logo vorhanden</span>';
+        deleteLogoDiv.style.display = 'none';
+    }
+
+    // Erst das andere Modal schließen, dann das neue öffnen
+    var firmaModal = bootstrap.Modal.getInstance(document.getElementById('firmaModal'));
+    if (firmaModal) firmaModal.hide();
+
+    setTimeout(function() {
+        new bootstrap.Modal(document.getElementById('editFirmaModal')).show();
+    }, 300);
 }
 </script>
 
