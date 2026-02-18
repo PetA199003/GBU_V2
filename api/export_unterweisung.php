@@ -132,7 +132,7 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
     <button class="print-btn no-print" onclick="window.print()">Drucken / PDF</button>
 
     <div class="print-footer">
-        <span id="page-info"></span> — <?= htmlspecialchars($unterweisung['projekt_name']) ?>
+        <?= htmlspecialchars($unterweisung['projekt_name']) ?>
     </div>
 
     <div id="content-wrapper">
@@ -209,19 +209,6 @@ function generateUnterweisung($unterweisung, $bausteineNachKat) {
 
     </div>
 
-    <script>
-    window.addEventListener('beforeprint', function() {
-        var wrapper = document.getElementById('content-wrapper');
-        var totalHeight = wrapper.offsetHeight;
-        // A4 druckbare Höhe bei 96dpi mit 10mm Rand
-        var PAGE_HEIGHT = 980;
-        var totalPages = Math.max(1, Math.ceil(totalHeight / PAGE_HEIGHT));
-        var info = document.getElementById('page-info');
-        if (info) {
-            info.textContent = 'Seiten: ' + totalPages;
-        }
-    });
-    </script>
 </body>
 </html>
 <?php
