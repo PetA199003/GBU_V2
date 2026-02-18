@@ -94,8 +94,8 @@ function generateUnterweisung($unterweisung, $bausteineNachKat, $lang, $vars) {
         h2 {
             font-size: 11pt;
             background: #FFC107;
-            padding: 5px 10px;
-            margin: 15px 0 10px;
+            padding: 6px 10px;
+            margin: 0 0 8px;
             border-bottom: 2px solid #000;
         }
         .header-info { margin: 15px 0; }
@@ -103,7 +103,7 @@ function generateUnterweisung($unterweisung, $bausteineNachKat, $lang, $vars) {
         .header-info td { padding: 3px 10px; vertical-align: top; }
         .header-info .label { font-weight: normal; width: 150px; }
         .header-info .value { font-weight: bold; }
-        .content-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        .content-table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
         .content-table th, .content-table td { border: 1px solid #000; padding: 5px 8px; vertical-align: top; }
         .content-table th { background: #f0f0f0; text-align: left; width: 120px; }
         .icon-cell { width: 100px; text-align: center; vertical-align: middle; }
@@ -111,8 +111,13 @@ function generateUnterweisung($unterweisung, $bausteineNachKat, $lang, $vars) {
         li { margin-bottom: 3px; }
         .page-break { page-break-before: always; }
         .kategorie-block {
+            margin-top: 20px;
             break-inside: avoid;
             page-break-inside: avoid;
+            page-break-before: auto;
+        }
+        .kategorie-block:first-child {
+            margin-top: 0;
         }
         /* Footer auf jeder Druckseite (position: fixed wiederholt in Chrome) */
         .print-footer {
@@ -136,6 +141,12 @@ function generateUnterweisung($unterweisung, $bausteineNachKat, $lang, $vars) {
             .kategorie-block {
                 break-inside: avoid;
                 page-break-inside: avoid;
+                page-break-before: auto;
+            }
+            /* Wenn ein Kategorie-Block nicht mehr auf die Seite passt,
+               wird er auf die nächste Seite verschoben */
+            .kategorie-block + .kategorie-block {
+                margin-top: 20px;
             }
             .print-footer { display: block; }
         }
