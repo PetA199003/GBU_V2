@@ -29,8 +29,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('login.php');
     } else {
         $errors = $result['errors'];
+        $fieldErrors = $result['fieldErrors'] ?? [];
     }
 }
+
+$fieldErrors = $fieldErrors ?? [];
 
 $pageTitle = 'Registrieren';
 ?>
@@ -58,11 +61,7 @@ $pageTitle = 'Registrieren';
             <?php if (!empty($errors)): ?>
             <div class="alert alert-danger">
                 <i class="bi bi-exclamation-circle me-2"></i>
-                <ul class="mb-0 ps-3">
-                    <?php foreach ($errors as $error): ?>
-                    <li><?= sanitize($error) ?></li>
-                    <?php endforeach; ?>
-                </ul>
+                Bitte korrigieren Sie die markierten Felder.
             </div>
             <?php endif; ?>
 
@@ -71,29 +70,35 @@ $pageTitle = 'Registrieren';
                     <div class="col-md-6 mb-3">
                         <label for="vorname" class="form-label">Vorname *</label>
                         <input type="text"
-                               class="form-control"
+                               class="form-control <?= isset($fieldErrors['vorname']) ? 'is-invalid' : '' ?>"
                                id="vorname"
                                name="vorname"
                                required
                                value="<?= sanitize($_POST['vorname'] ?? '') ?>">
+                        <?php if (isset($fieldErrors['vorname'])): ?>
+                        <div class="invalid-feedback"><?= sanitize($fieldErrors['vorname']) ?></div>
+                        <?php endif; ?>
                     </div>
                     <div class="col-md-6 mb-3">
                         <label for="nachname" class="form-label">Nachname *</label>
                         <input type="text"
-                               class="form-control"
+                               class="form-control <?= isset($fieldErrors['nachname']) ? 'is-invalid' : '' ?>"
                                id="nachname"
                                name="nachname"
                                required
                                value="<?= sanitize($_POST['nachname'] ?? '') ?>">
+                        <?php if (isset($fieldErrors['nachname'])): ?>
+                        <div class="invalid-feedback"><?= sanitize($fieldErrors['nachname']) ?></div>
+                        <?php endif; ?>
                     </div>
                 </div>
 
                 <div class="mb-3">
                     <label for="benutzername" class="form-label">Benutzername *</label>
-                    <div class="input-group">
+                    <div class="input-group <?= isset($fieldErrors['benutzername']) ? 'has-validation' : '' ?>">
                         <span class="input-group-text"><i class="bi bi-person"></i></span>
                         <input type="text"
-                               class="form-control"
+                               class="form-control <?= isset($fieldErrors['benutzername']) ? 'is-invalid' : '' ?>"
                                id="benutzername"
                                name="benutzername"
                                required
@@ -101,48 +106,64 @@ $pageTitle = 'Registrieren';
                                pattern="[a-zA-Z0-9_]+"
                                title="Nur Buchstaben, Zahlen und Unterstriche"
                                value="<?= sanitize($_POST['benutzername'] ?? '') ?>">
+                        <?php if (isset($fieldErrors['benutzername'])): ?>
+                        <div class="invalid-feedback"><?= sanitize($fieldErrors['benutzername']) ?></div>
+                        <?php endif; ?>
                     </div>
+                    <?php if (!isset($fieldErrors['benutzername'])): ?>
                     <div class="form-text">Mindestens 3 Zeichen, nur Buchstaben, Zahlen und Unterstriche</div>
+                    <?php endif; ?>
                 </div>
 
                 <div class="mb-3">
                     <label for="email" class="form-label">E-Mail-Adresse *</label>
-                    <div class="input-group">
+                    <div class="input-group <?= isset($fieldErrors['email']) ? 'has-validation' : '' ?>">
                         <span class="input-group-text"><i class="bi bi-envelope"></i></span>
                         <input type="email"
-                               class="form-control"
+                               class="form-control <?= isset($fieldErrors['email']) ? 'is-invalid' : '' ?>"
                                id="email"
                                name="email"
                                required
                                value="<?= sanitize($_POST['email'] ?? '') ?>">
+                        <?php if (isset($fieldErrors['email'])): ?>
+                        <div class="invalid-feedback"><?= sanitize($fieldErrors['email']) ?></div>
+                        <?php endif; ?>
                     </div>
                 </div>
 
                 <div class="mb-3">
                     <label for="passwort" class="form-label">Passwort *</label>
-                    <div class="input-group">
+                    <div class="input-group <?= isset($fieldErrors['passwort']) ? 'has-validation' : '' ?>">
                         <span class="input-group-text"><i class="bi bi-lock"></i></span>
                         <input type="password"
-                               class="form-control"
+                               class="form-control <?= isset($fieldErrors['passwort']) ? 'is-invalid' : '' ?>"
                                id="passwort"
                                name="passwort"
                                required
                                minlength="6"
                                pattern=".*[^a-zA-Z0-9].*"
                                title="Mindestens 6 Zeichen und ein Sonderzeichen">
+                        <?php if (isset($fieldErrors['passwort'])): ?>
+                        <div class="invalid-feedback"><?= sanitize($fieldErrors['passwort']) ?></div>
+                        <?php endif; ?>
                     </div>
+                    <?php if (!isset($fieldErrors['passwort'])): ?>
                     <div class="form-text">Mindestens 6 Zeichen und ein Sonderzeichen (z.B. !@#$%)</div>
+                    <?php endif; ?>
                 </div>
 
                 <div class="mb-4">
                     <label for="passwort_confirm" class="form-label">Passwort wiederholen *</label>
-                    <div class="input-group">
+                    <div class="input-group <?= isset($fieldErrors['passwort_confirm']) ? 'has-validation' : '' ?>">
                         <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
                         <input type="password"
-                               class="form-control"
+                               class="form-control <?= isset($fieldErrors['passwort_confirm']) ? 'is-invalid' : '' ?>"
                                id="passwort_confirm"
                                name="passwort_confirm"
                                required>
+                        <?php if (isset($fieldErrors['passwort_confirm'])): ?>
+                        <div class="invalid-feedback"><?= sanitize($fieldErrors['passwort_confirm']) ?></div>
+                        <?php endif; ?>
                     </div>
                 </div>
 

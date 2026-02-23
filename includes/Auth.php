@@ -19,53 +19,70 @@ class Auth {
     public function register($data) {
         // Validierung
         $errors = [];
-
-        if (empty($data['benutzername']) || strlen($data['benutzername']) < 3) {
-            $errors[] = 'Benutzername muss mindestens 3 Zeichen lang sein.';
-        }
-
-        if (empty($data['email']) || !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-            $errors[] = 'Bitte geben Sie eine gültige E-Mail-Adresse ein.';
-        }
-
-        if (empty($data['passwort']) || strlen($data['passwort']) < 6) {
-            $errors[] = 'Passwort muss mindestens 6 Zeichen lang sein.';
-        } elseif (!preg_match('/[^a-zA-Z0-9]/', $data['passwort'])) {
-            $errors[] = 'Passwort muss mindestens ein Sonderzeichen enthalten.';
-        }
-
-        if ($data['passwort'] !== $data['passwort_confirm']) {
-            $errors[] = 'Die Passwörter stimmen nicht überein.';
-        }
+        $fieldErrors = [];
 
         if (empty($data['vorname'])) {
             $errors[] = 'Bitte geben Sie Ihren Vornamen ein.';
+            $fieldErrors['vorname'] = 'Bitte geben Sie Ihren Vornamen ein.';
         }
 
         if (empty($data['nachname'])) {
             $errors[] = 'Bitte geben Sie Ihren Nachnamen ein.';
+            $fieldErrors['nachname'] = 'Bitte geben Sie Ihren Nachnamen ein.';
+        }
+
+        if (empty($data['benutzername']) || strlen($data['benutzername']) < 3) {
+            $errors[] = 'Benutzername muss mindestens 3 Zeichen lang sein.';
+            $fieldErrors['benutzername'] = 'Benutzername muss mindestens 3 Zeichen lang sein.';
+        } elseif (!preg_match('/^[a-zA-Z0-9_]+$/', $data['benutzername'])) {
+            $errors[] = 'Benutzername darf nur Buchstaben, Zahlen und Unterstriche enthalten.';
+            $fieldErrors['benutzername'] = 'Nur Buchstaben, Zahlen und Unterstriche erlaubt.';
+        }
+
+        if (empty($data['email']) || !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'Bitte geben Sie eine gültige E-Mail-Adresse ein.';
+            $fieldErrors['email'] = 'Bitte geben Sie eine gültige E-Mail-Adresse ein.';
+        }
+
+        if (empty($data['passwort']) || strlen($data['passwort']) < 6) {
+            $errors[] = 'Passwort muss mindestens 6 Zeichen lang sein.';
+            $fieldErrors['passwort'] = 'Passwort muss mindestens 6 Zeichen lang sein.';
+        } elseif (!preg_match('/[^a-zA-Z0-9]/', $data['passwort'])) {
+            $errors[] = 'Passwort muss mindestens ein Sonderzeichen enthalten.';
+            $fieldErrors['passwort'] = 'Mindestens ein Sonderzeichen erforderlich.';
+        }
+
+        if ($data['passwort'] !== $data['passwort_confirm']) {
+            $errors[] = 'Die Passwörter stimmen nicht überein.';
+            $fieldErrors['passwort_confirm'] = 'Die Passwörter stimmen nicht überein.';
         }
 
         // Prüfen ob Benutzername bereits existiert
-        $existing = $this->db->fetchOne(
-            "SELECT id FROM benutzer WHERE benutzername = ?",
-            [$data['benutzername']]
-        );
-        if ($existing) {
-            $errors[] = 'Dieser Benutzername ist bereits vergeben.';
+        if (empty($fieldErrors['benutzername']) && !empty($data['benutzername'])) {
+            $existing = $this->db->fetchOne(
+                "SELECT id FROM benutzer WHERE benutzername = ?",
+                [$data['benutzername']]
+            );
+            if ($existing) {
+                $errors[] = 'Dieser Benutzername ist bereits vergeben.';
+                $fieldErrors['benutzername'] = 'Dieser Benutzername ist bereits vergeben.';
+            }
         }
 
         // Prüfen ob E-Mail bereits existiert
-        $existing = $this->db->fetchOne(
-            "SELECT id FROM benutzer WHERE email = ?",
-            [$data['email']]
-        );
-        if ($existing) {
-            $errors[] = 'Diese E-Mail-Adresse ist bereits registriert.';
+        if (empty($fieldErrors['email']) && !empty($data['email'])) {
+            $existing = $this->db->fetchOne(
+                "SELECT id FROM benutzer WHERE email = ?",
+                [$data['email']]
+            );
+            if ($existing) {
+                $errors[] = 'Diese E-Mail-Adresse ist bereits registriert.';
+                $fieldErrors['email'] = 'Diese E-Mail-Adresse ist bereits registriert.';
+            }
         }
 
         if (!empty($errors)) {
-            return ['success' => false, 'errors' => $errors];
+            return ['success' => false, 'errors' => $errors, 'fieldErrors' => $fieldErrors];
         }
 
         // Benutzer erstellen (inaktiv bis Admin freischaltet)
