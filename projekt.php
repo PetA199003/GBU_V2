@@ -872,7 +872,7 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Titel (English) <small class="text-muted">optional</small></label>
+                                <label class="form-label">Tätigkeit (English) <small class="text-muted">optional</small></label>
                                 <input type="text" class="form-control" name="titel_en" id="gef_titel_en">
                             </div>
 
@@ -882,7 +882,7 @@ global $SCHADENSCHWERE, $WAHRSCHEINLICHKEIT, $STOP_PRINZIP;
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Beschreibung (English) <small class="text-muted">optional</small></label>
+                                <label class="form-label">Gefährdung (English) <small class="text-muted">optional</small></label>
                                 <textarea class="form-control" name="beschreibung_en" id="gef_beschreibung_en" rows="3"></textarea>
                             </div>
 
