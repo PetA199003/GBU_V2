@@ -14,15 +14,15 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Zeitzone
-date_default_timezone_set('Europe/Berlin');
+date_default_timezone_set('Europe/Zurich');
 
 // Basis-Pfade
 define('BASE_PATH', dirname(__DIR__));
 define('BASE_URL', '');
 
 // Anwendungs-Einstellungen
-define('APP_NAME', 'Gefährdungsbeurteilung');
-define('APP_VERSION', '1.0.0');
+define('APP_NAME', 'GBU-Portal.ch');
+define('APP_VERSION', '1.11.0');
 
 // Benutzerrollen
 define('ROLE_VIEWER', 1);

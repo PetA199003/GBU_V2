@@ -5,10 +5,10 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-md-6 text-muted">
-                    &copy; <?= date('Y') ?> <?= APP_NAME ?> v<?= APP_VERSION ?>
+                    &copy; <?= date('Y') ?> <?= APP_NAME ?> V.<?= APP_VERSION ?>
                 </div>
                 <div class="col-md-6 text-md-end text-muted">
-                    <small>Gefährdungsbeurteilung nach ArbSchG, ArbStättV</small>
+                    <small>Gefährdungsbeurteilung nach ArG, VUV, EKAS-Richtlinien</small>
                 </div>
             </div>
         </div>
