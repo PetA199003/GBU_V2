@@ -60,7 +60,7 @@ $TRANSLATIONS = [
         'csv_responsible'     => 'Verantwortlich',
 
         // === Unterweisung Export ===
-        'uw_title'            => 'Regeln für Arbeiten bei Produktionen und Veranstaltungen',
+        'uw_title'            => 'Sicherheitsunterweisung',
         'uw_event'            => 'Veranstaltung',
         'uw_date_location'    => 'Datum und Ort',
         'uw_created_by'       => 'Erstellt von',
@@ -149,8 +149,8 @@ $TRANSLATIONS = [
         'csv_risk_after'      => 'R after measures',
         'csv_responsible'     => 'Responsible',
 
-        // === Safety Briefing Export ===
-        'uw_title'            => 'Safety Rules for Productions and Events',
+        // === Safety Instructions Export ===
+        'uw_title'            => 'Safety Instructions',
         'uw_event'            => 'Event',
         'uw_date_location'    => 'Date and Location',
         'uw_created_by'       => 'Created by',
