@@ -136,7 +136,6 @@ function generateUnterweisung($unterweisung, $bausteineNachKat, $lang, $vars) {
             font-size: 8pt;
             color: #666;
             padding: 4px 10mm;
-            border-top: 1px solid #ccc;
         }
         @page {
             margin: 10mm;
@@ -293,7 +292,6 @@ function generateTeilnehmerliste($unterweisung, $teilnehmer, $lang, $vars) {
             font-size: 8pt;
             color: #666;
             padding: 4px 10mm;
-            border-top: 1px solid #ccc;
         }
         .header-info { margin: 15px 0; }
         .header-info table { width: 100%; }
