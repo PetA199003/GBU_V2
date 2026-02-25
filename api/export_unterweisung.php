@@ -90,7 +90,7 @@ function generateUnterweisung($unterweisung, $bausteineNachKat, $lang, $vars) {
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.4; padding: 15mm; }
-        h1 { font-size: 16pt; text-align: center; margin-bottom: 5px; }
+        h1 { font-size: 13pt; text-align: center; margin-bottom: 5px; margin-right: 160px; }
         h2 {
             font-size: 11pt;
             background: #FFC107;
