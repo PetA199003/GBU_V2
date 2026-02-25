@@ -61,7 +61,7 @@ $TRANSLATIONS = [
 
         // === Unterweisung Export ===
         'uw_title'            => 'Sicherheitsunterweisung',
-        'uw_intro'            => 'Diese Sicherheitsunterweisung ist verpflichtend für alle Beschäftigten und dient der Vermeidung von Unfällen und Gefährdungen im Arbeitsumfeld. Alle Punkte sind eigenverantwortlich zu befolgen. Verstöße können zu einem Arbeitsverbot oder Produktionsausschluss führen.',
+        'uw_intro'            => 'Diese Sicherheitsunterweisung ist verpflichtend für alle Beschäftigten und dient der Vermeidung von Unfällen und Gefährdungen im Arbeitsumfeld. Alle Punkte sind eigenverantwortlich zu befolgen. Verstösse können zu einem Arbeitsverbot oder Produktionsausschluss führen.',
         'uw_event'            => 'Veranstaltung',
         'uw_date_location'    => 'Datum und Ort',
         'uw_created_by'       => 'Erstellt von',
