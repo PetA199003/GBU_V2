@@ -200,7 +200,7 @@ function generateUnterweisung($unterweisung, $bausteineNachKat, $lang, $vars) {
         </table>
     </div>
 
-    <p style="font-size: 9pt; margin: 10px 0 15px; line-height: 1.4; color: #333;"><?= t('uw_intro', $lang) ?></p>
+    <p style="font-size: 9pt; margin: 10px 0 15px; line-height: 1.4; color: #333; font-weight: bold;"><?= t('uw_intro', $lang) ?></p>
 
     <?php foreach ($bausteineNachKat as $kategorie => $bausteine): ?>
     <div class="kategorie-block">
