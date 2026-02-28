@@ -36,13 +36,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $firma = trim($_POST['firma'] ?? '') ?: null;
 
         if ($vorname && $nachname) {
-            $newId = $db->insert('unterweisung_teilnehmer', [
-                'unterweisung_id' => $unterweisungId,
-                'vorname' => $vorname,
-                'nachname' => $nachname,
-                'firma' => $firma
-            ]);
-            echo json_encode(['success' => true, 'id' => $newId, 'vorname' => $vorname, 'nachname' => $nachname, 'firma' => $firma]);
+            // Prüfen ob Teilnehmer bereits existiert (case-insensitive)
+            $existing = $db->fetchOne("
+                SELECT id, unterschrift FROM unterweisung_teilnehmer
+                WHERE unterweisung_id = ? AND LOWER(vorname) = LOWER(?) AND LOWER(nachname) = LOWER(?)
+            ", [$unterweisungId, $vorname, $nachname]);
+
+            if ($existing) {
+                if ($existing['unterschrift']) {
+                    echo json_encode(['success' => false, 'error' => $vorname . ' ' . $nachname . ' hat bereits unterschrieben.']);
+                } else {
+                    // Bestehenden Eintrag verwenden, ggf. Firma aktualisieren
+                    if ($firma) {
+                        $db->update('unterweisung_teilnehmer', ['firma' => $firma], 'id = :id', ['id' => $existing['id']]);
+                    }
+                    echo json_encode(['success' => true, 'id' => $existing['id'], 'vorname' => $vorname, 'nachname' => $nachname, 'firma' => $firma, 'existing' => true]);
+                }
+            } else {
+                $newId = $db->insert('unterweisung_teilnehmer', [
+                    'unterweisung_id' => $unterweisungId,
+                    'vorname' => $vorname,
+                    'nachname' => $nachname,
+                    'firma' => $firma
+                ]);
+                echo json_encode(['success' => true, 'id' => $newId, 'vorname' => $vorname, 'nachname' => $nachname, 'firma' => $firma, 'existing' => false]);
+            }
         } else {
             echo json_encode(['success' => false, 'error' => 'Vor- und Nachname erforderlich']);
         }
@@ -423,7 +441,9 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
 
             const signatureData = c.toDataURL('image/png');
 
-            // 1. Teilnehmer anlegen
+            let isExisting = false;
+
+            // 1. Teilnehmer anlegen oder bestehenden finden
             fetch(window.location.href, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -432,8 +452,16 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             .then(res => res.json())
             .then(data => {
                 if (!data.success) {
-                    alert('Fehler: ' + (data.error || 'Unbekannt'));
-                    return;
+                    alert(data.error || 'Fehler');
+                    return Promise.reject('stopped');
+                }
+
+                isExisting = data.existing || false;
+
+                // Bestehende Karte aus der offenen Liste entfernen
+                if (isExisting) {
+                    const existingCard = document.querySelector(`.teilnehmer-card[data-id="${data.id}"]`);
+                    if (existingCard) existingCard.remove();
                 }
 
                 // 2. Unterschrift speichern
@@ -450,7 +478,7 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
                     const match = progressText.innerHTML.match(/(\d+)\s*\/\s*(\d+)/);
                     if (match) {
                         const signed = parseInt(match[1]) + 1;
-                        const total = parseInt(match[2]) + 1;
+                        const total = isExisting ? parseInt(match[2]) : parseInt(match[2]) + 1;
                         progressText.innerHTML = progressText.innerHTML
                             .replace(/>(\d+)<\/span>/, '>' + signed + '</span>')
                             .replace(/\/\s*\d+/, '/ ' + total);
@@ -464,13 +492,15 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
 
                     // Zurück zur Liste
                     cancelAddSign();
-                } else {
+                } else if (result) {
                     alert('Fehler beim Speichern der Unterschrift.');
                 }
             })
             .catch(err => {
-                alert('Verbindungsfehler');
-                console.error(err);
+                if (err !== 'stopped') {
+                    alert('Verbindungsfehler');
+                    console.error(err);
+                }
             });
         }
 
