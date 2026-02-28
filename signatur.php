@@ -295,7 +295,7 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
 
         document.addEventListener('DOMContentLoaded', function() {
             // Teilnehmer-Auswahl
-            document.querySelectorAll('.teilnehmer-card').forEach(card => {
+            document.querySelectorAll('.teilnehmer-card[data-id]').forEach(card => {
                 card.addEventListener('click', function() {
                     selectTeilnehmer(this.dataset.id, this.dataset.name);
                 });
@@ -365,15 +365,36 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             document.getElementById('teilnehmerList').style.display = 'block';
         }
 
-        function toggleAddForm() {
-            const form = document.getElementById('addTeilnehmerForm');
-            form.style.display = form.style.display === 'none' ? 'block' : 'none';
-            if (form.style.display === 'block') {
+        function showAddAndSign() {
+            document.getElementById('teilnehmerList').style.display = 'none';
+            document.getElementById('addSignSection').style.display = 'block';
+            setTimeout(function() {
+                initCanvas('addSignCanvas');
                 document.getElementById('addVorname').focus();
-            }
+            }, 50);
+            document.getElementById('addSignSection').scrollIntoView({ behavior: 'smooth' });
         }
 
-        function addTeilnehmer() {
+        function cancelAddSign() {
+            document.getElementById('addSignSection').style.display = 'none';
+            document.getElementById('teilnehmerList').style.display = 'block';
+            document.getElementById('addVorname').value = '';
+            document.getElementById('addNachname').value = '';
+            document.getElementById('addFirma').value = '';
+        }
+
+        function clearAddCanvas() {
+            const c = document.getElementById('addSignCanvas');
+            if (!c) return;
+            const cCtx = c.getContext('2d');
+            const rect = c.getBoundingClientRect();
+            cCtx.fillStyle = '#fff';
+            cCtx.fillRect(0, 0, rect.width, rect.height);
+            cCtx.strokeStyle = '#000';
+            c.classList.remove('signing');
+        }
+
+        function saveAddAndSign() {
             const vorname = document.getElementById('addVorname').value.trim();
             const nachname = document.getElementById('addNachname').value.trim();
             const firma = document.getElementById('addFirma').value.trim();
@@ -383,6 +404,26 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
                 return;
             }
 
+            // Unterschrift prüfen
+            const c = document.getElementById('addSignCanvas');
+            const cCtx = c.getContext('2d');
+            const imageData = cCtx.getImageData(0, 0, c.width, c.height);
+            const pixels = imageData.data;
+            let hasSignature = false;
+            for (let i = 0; i < pixels.length; i += 4) {
+                if (pixels[i] < 250 || pixels[i+1] < 250 || pixels[i+2] < 250) {
+                    hasSignature = true;
+                    break;
+                }
+            }
+            if (!hasSignature) {
+                alert('Bitte unterschreiben Sie zuerst.');
+                return;
+            }
+
+            const signatureData = c.toDataURL('image/png');
+
+            // 1. Teilnehmer anlegen
             fetch(window.location.href, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -390,45 +431,41 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             })
             .then(res => res.json())
             .then(data => {
-                if (data.success) {
-                    // Neue Karte vor dem "Hinzufügen"-Button einfügen
-                    const fullName = data.vorname + ' ' + data.nachname;
-                    const addBtn = document.querySelector('#teilnehmerList .teilnehmer-card[onclick]');
-                    const newCard = document.createElement('div');
-                    newCard.className = 'teilnehmer-card';
-                    newCard.dataset.id = data.id;
-                    newCard.dataset.name = fullName;
-                    newCard.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>${data.nachname}, ${data.vorname}</strong>
-                                ${data.firma ? '<br><small class="text-white-50">' + data.firma + '</small>' : ''}
-                            </div>
-                            <i class="bi bi-chevron-right"></i>
-                        </div>`;
-                    newCard.addEventListener('click', function() {
-                        selectTeilnehmer(this.dataset.id, this.dataset.name);
-                    });
-                    addBtn.parentNode.insertBefore(newCard, addBtn);
+                if (!data.success) {
+                    alert('Fehler: ' + (data.error || 'Unbekannt'));
+                    return;
+                }
 
-                    // Gesamtzähler aktualisieren
+                // 2. Unterschrift speichern
+                return fetch(window.location.href, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `action=sign&teilnehmer_id=${data.id}&signatur=${encodeURIComponent(signatureData)}`
+                }).then(res => res.json());
+            })
+            .then(result => {
+                if (result && result.success) {
+                    // Zähler aktualisieren
                     const progressText = document.querySelector('.progress-info');
                     const match = progressText.innerHTML.match(/(\d+)\s*\/\s*(\d+)/);
                     if (match) {
+                        const signed = parseInt(match[1]) + 1;
                         const total = parseInt(match[2]) + 1;
-                        progressText.innerHTML = progressText.innerHTML.replace(/\/\s*\d+/, '/ ' + total);
+                        progressText.innerHTML = progressText.innerHTML
+                            .replace(/>(\d+)<\/span>/, '>' + signed + '</span>')
+                            .replace(/\/\s*\d+/, '/ ' + total);
                     }
 
-                    // Formular zurücksetzen und schliessen
+                    // Formular zurücksetzen
                     document.getElementById('addVorname').value = '';
                     document.getElementById('addNachname').value = '';
                     document.getElementById('addFirma').value = '';
-                    toggleAddForm();
+                    clearAddCanvas();
 
-                    // Direkt zur Unterschrift
-                    selectTeilnehmer(data.id, fullName);
+                    // Zurück zur Liste
+                    cancelAddSign();
                 } else {
-                    alert('Fehler: ' + (data.error || 'Unbekannt'));
+                    alert('Fehler beim Speichern der Unterschrift.');
                 }
             })
             .catch(err => {
