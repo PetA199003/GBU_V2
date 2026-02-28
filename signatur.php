@@ -134,7 +134,7 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             padding: 20px;
             margin-top: 20px;
         }
-        #signatureCanvas {
+        #signatureCanvas, #addSignCanvas {
             display: block;
             width: 100%;
             height: 200px;
@@ -143,7 +143,7 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             background: #fff;
             touch-action: none;
         }
-        #signatureCanvas.signing {
+        #signatureCanvas.signing, #addSignCanvas.signing {
             border-color: #0d6efd;
             border-style: solid;
         }
@@ -210,36 +210,13 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             <?php endforeach; ?>
 
             <!-- Teilnehmer hinzufügen -->
-            <div class="teilnehmer-card" onclick="toggleAddForm()" style="border: 2px dashed rgba(255,255,255,0.3);">
+            <div class="teilnehmer-card" onclick="showAddAndSign()" style="border: 2px dashed rgba(255,255,255,0.3);">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <strong><i class="bi bi-person-plus me-2"></i>Teilnehmer hinzufügen</strong>
                         <br><small class="text-white-50">Name nicht in der Liste?</small>
                     </div>
                     <i class="bi bi-plus-lg"></i>
-                </div>
-            </div>
-
-            <div id="addTeilnehmerForm" style="display: none; margin-top: 10px;">
-                <div class="signature-area">
-                    <h5 class="text-dark mb-3"><i class="bi bi-person-plus me-2"></i>Neuer Teilnehmer</h5>
-                    <div class="row g-2 mb-2">
-                        <div class="col-6">
-                            <input type="text" class="form-control" id="addVorname" placeholder="Vorname *" required>
-                        </div>
-                        <div class="col-6">
-                            <input type="text" class="form-control" id="addNachname" placeholder="Nachname *" required>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <input type="text" class="form-control" id="addFirma" placeholder="Firma (optional)">
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <button type="button" class="btn btn-outline-secondary" onclick="toggleAddForm()">Abbrechen</button>
-                        <button type="button" class="btn btn-primary" onclick="addTeilnehmer()">
-                            <i class="bi bi-plus-lg me-1"></i>Hinzufügen & Unterschreiben
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
@@ -270,6 +247,43 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             </p>
         </div>
 
+        <!-- Neuer Teilnehmer + Unterschrift kombiniert -->
+        <div id="addSignSection" class="signature-area" style="display: none;">
+            <h5 class="text-dark mb-3"><i class="bi bi-person-plus me-2"></i>Neuer Teilnehmer</h5>
+            <div class="row g-2 mb-2">
+                <div class="col-6">
+                    <input type="text" class="form-control" id="addVorname" placeholder="Vorname *">
+                </div>
+                <div class="col-6">
+                    <input type="text" class="form-control" id="addNachname" placeholder="Nachname *">
+                </div>
+            </div>
+            <div class="mb-3">
+                <input type="text" class="form-control" id="addFirma" placeholder="Firma (optional)">
+            </div>
+
+            <hr class="text-muted">
+            <h5 class="text-dark mb-3">Unterschrift</h5>
+            <canvas id="addSignCanvas"></canvas>
+
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <button type="button" class="btn btn-outline-secondary" onclick="clearAddCanvas()">
+                    <i class="bi bi-eraser me-2"></i>Löschen
+                </button>
+                <button type="button" class="btn btn-outline-dark" onclick="cancelAddSign()">
+                    Abbrechen
+                </button>
+                <button type="button" class="btn btn-success btn-sign" onclick="saveAddAndSign()">
+                    <i class="bi bi-check-lg me-2"></i>Bestätigen
+                </button>
+            </div>
+
+            <p class="text-muted small mt-3 mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                Mit Ihrer Unterschrift bestätigen Sie, dass Sie an der Sicherheitsunterweisung teilgenommen und den Inhalt verstanden haben.
+            </p>
+        </div>
+
         <?php endif; ?>
     </div>
 
@@ -288,8 +302,8 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             });
         });
 
-        function initCanvas() {
-            canvas = document.getElementById('signatureCanvas');
+        function initCanvas(canvasId) {
+            canvas = document.getElementById(canvasId || 'signatureCanvas');
             if (!canvas) return;
 
             ctx = canvas.getContext('2d');
