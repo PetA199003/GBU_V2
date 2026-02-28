@@ -30,6 +30,25 @@ if (!$unterweisung) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
 
+    if ($_POST['action'] === 'add_teilnehmer') {
+        $vorname = trim($_POST['vorname'] ?? '');
+        $nachname = trim($_POST['nachname'] ?? '');
+        $firma = trim($_POST['firma'] ?? '') ?: null;
+
+        if ($vorname && $nachname) {
+            $newId = $db->insert('unterweisung_teilnehmer', [
+                'unterweisung_id' => $unterweisungId,
+                'vorname' => $vorname,
+                'nachname' => $nachname,
+                'firma' => $firma
+            ]);
+            echo json_encode(['success' => true, 'id' => $newId, 'vorname' => $vorname, 'nachname' => $nachname, 'firma' => $firma]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Vor- und Nachname erforderlich']);
+        }
+        exit;
+    }
+
     if ($_POST['action'] === 'sign') {
         $teilnehmerId = $_POST['teilnehmer_id'] ?? null;
         $signatur = $_POST['signatur'] ?? null;
@@ -189,6 +208,40 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
                 </div>
             </div>
             <?php endforeach; ?>
+
+            <!-- Teilnehmer hinzufügen -->
+            <div class="teilnehmer-card" onclick="toggleAddForm()" style="border: 2px dashed rgba(255,255,255,0.3);">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong><i class="bi bi-person-plus me-2"></i>Teilnehmer hinzufügen</strong>
+                        <br><small class="text-white-50">Name nicht in der Liste?</small>
+                    </div>
+                    <i class="bi bi-plus-lg"></i>
+                </div>
+            </div>
+
+            <div id="addTeilnehmerForm" style="display: none; margin-top: 10px;">
+                <div class="signature-area">
+                    <h5 class="text-dark mb-3"><i class="bi bi-person-plus me-2"></i>Neuer Teilnehmer</h5>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <input type="text" class="form-control" id="addVorname" placeholder="Vorname *" required>
+                        </div>
+                        <div class="col-6">
+                            <input type="text" class="form-control" id="addNachname" placeholder="Nachname *" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="addFirma" placeholder="Firma (optional)">
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <button type="button" class="btn btn-outline-secondary" onclick="toggleAddForm()">Abbrechen</button>
+                        <button type="button" class="btn btn-primary" onclick="addTeilnehmer()">
+                            <i class="bi bi-plus-lg me-1"></i>Hinzufügen & Unterschreiben
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Signatur-Bereich (versteckt bis Auswahl) -->
@@ -296,6 +349,78 @@ $unterschriebenCount = count(array_filter($alleTeilnehmer, fn($t) => $t['untersc
             selectedTeilnehmerId = null;
             document.getElementById('signatureSection').style.display = 'none';
             document.getElementById('teilnehmerList').style.display = 'block';
+        }
+
+        function toggleAddForm() {
+            const form = document.getElementById('addTeilnehmerForm');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+            if (form.style.display === 'block') {
+                document.getElementById('addVorname').focus();
+            }
+        }
+
+        function addTeilnehmer() {
+            const vorname = document.getElementById('addVorname').value.trim();
+            const nachname = document.getElementById('addNachname').value.trim();
+            const firma = document.getElementById('addFirma').value.trim();
+
+            if (!vorname || !nachname) {
+                alert('Bitte Vor- und Nachname eingeben.');
+                return;
+            }
+
+            fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `action=add_teilnehmer&vorname=${encodeURIComponent(vorname)}&nachname=${encodeURIComponent(nachname)}&firma=${encodeURIComponent(firma)}`
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // Neue Karte vor dem "Hinzufügen"-Button einfügen
+                    const fullName = data.vorname + ' ' + data.nachname;
+                    const addBtn = document.querySelector('#teilnehmerList .teilnehmer-card[onclick]');
+                    const newCard = document.createElement('div');
+                    newCard.className = 'teilnehmer-card';
+                    newCard.dataset.id = data.id;
+                    newCard.dataset.name = fullName;
+                    newCard.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${data.nachname}, ${data.vorname}</strong>
+                                ${data.firma ? '<br><small class="text-white-50">' + data.firma + '</small>' : ''}
+                            </div>
+                            <i class="bi bi-chevron-right"></i>
+                        </div>`;
+                    newCard.addEventListener('click', function() {
+                        selectTeilnehmer(this.dataset.id, this.dataset.name);
+                    });
+                    addBtn.parentNode.insertBefore(newCard, addBtn);
+
+                    // Gesamtzähler aktualisieren
+                    const progressText = document.querySelector('.progress-info');
+                    const match = progressText.innerHTML.match(/(\d+)\s*\/\s*(\d+)/);
+                    if (match) {
+                        const total = parseInt(match[2]) + 1;
+                        progressText.innerHTML = progressText.innerHTML.replace(/\/\s*\d+/, '/ ' + total);
+                    }
+
+                    // Formular zurücksetzen und schliessen
+                    document.getElementById('addVorname').value = '';
+                    document.getElementById('addNachname').value = '';
+                    document.getElementById('addFirma').value = '';
+                    toggleAddForm();
+
+                    // Direkt zur Unterschrift
+                    selectTeilnehmer(data.id, fullName);
+                } else {
+                    alert('Fehler: ' + (data.error || 'Unbekannt'));
+                }
+            })
+            .catch(err => {
+                alert('Verbindungsfehler');
+                console.error(err);
+            });
         }
 
         function getTouchPos(e) {
